@@ -99,16 +99,13 @@
    (buffer-size :reader buffer-size :initarg :buffer-size)
    (direction :reader direction :initarg :direction)))
 
-(defun alsa-open (buffer &key direction)
+(defun alsa-open (buffer-size format &key direction)
   (make-instance 'pcm-stream
 		 :direction (case direction
 			      (:input :snd-pcm-stream-capture)
 			      (:output :snd-pcm-stream-playback))
-		 :buffer buffer :buffer-size (length buffer)
-		 :pcm-format (let ((eltype (array-element-type buffer)))
-			       (cond ((eql eltype 'single-float) :snd-pcm-format-float-le)
-				     ((eql eltype 'double-float) :snd-pcm-format-float64-le)
-				     (t (error "Unsupported array element type ~A" eltype)))))))
+		 :buffer (foreign-alloc format :count buffer-size) :buffer-size buffer-size
+		 :pcm-format format)))
 
 (defmethod alsa-close ((pcm pcm-stream))
   (snd-pcm-close (handle pcm)))
