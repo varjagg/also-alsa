@@ -97,15 +97,26 @@
    (pcm-format :reader pcm-format :initarg :pcm-format :initform :snd-pcm-format-s16-le)
    (buffer :reader buffer :initarg :buffer)
    (buffer-size :reader buffer-size :initarg :buffer-size)
+   (element-type :reader element-type :initarg :element-type)
    (direction :reader direction :initarg :direction)))
 
-(defun alsa-open (buffer-size format &key direction)
+(defun alsa-open (buffer-size element-type &key direction)
   (make-instance 'pcm-stream
 		 :direction (case direction
 			      (:input :snd-pcm-stream-capture)
 			      (:output :snd-pcm-stream-playback))
-		 :buffer (foreign-alloc format :count buffer-size) :buffer-size buffer-size
-		 :pcm-format format)))
+		 :element-type element-type
+		 :buffer (foreign-alloc element-type :count buffer-size) :buffer-size buffer-size
+		 :pcm-format (etypecase element-type
+			       (single-float :snd-pcm-format-float-le)
+			       (double-float :snd-pcm-format-float64-le)
+			       ((unsigned-byte 8) :snd-pcm-format-u8-le)
+			       ((signed-byte 8) :snd-pcm-format-s8-le)
+			       ((unsigned-byte 16) :snd-pcm-format-u16-le)
+			       ((signed-byte 16) :snd-pcm-format-s16-le)))))
+
+(defmethod ref ((pcm pcm-stream) position)
+  (mem-aref (buffer pcm) (element-type pcm) position))
 
 (defmethod alsa-close ((pcm pcm-stream))
   (snd-pcm-close (handle pcm)))
