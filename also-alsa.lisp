@@ -3,8 +3,10 @@
 (in-package #:also-alsa)
 
 (define-foreign-library libasound
-  (:unix (:or "libasound.so"))
+  (:unix "libasound.so")
   (t (:default "libasound.so")))
+
+(use-foreign-library libasound)
 
 (defcenum snd-pcm-class
   (:snd-pcm-class-generic 0)
@@ -88,3 +90,27 @@
 (defcfun "snd_pcm_writei" snd-pcm-sframes (pcm :pointer) (buffer :pointer) (size snd-pcm-uframes))
 
 (defcfun "snd_pcm_readi" snd-pcm-sframes (pcm :pointer) (buffer :pointer) (size snd-pcm-uframes))
+
+(defclass pcm-stream ()
+  ((handle :reader handle :initform (null-pointer))
+   (params :reader params :initform (null-pointer))
+   (pcm-format :reader pcm-format :initarg :pcm-format :initform :snd-pcm-format-s16-le)
+   (buffer :reader buffer :initarg :buffer)
+   (buffer-size :reader buffer-size :initarg :buffer-size)
+   (direction :reader direction :initarg :direction)))
+
+(defun alsa-open (buffer &key direction)
+  (make-instance 'pcm-stream
+		 :direction (case direction
+			      (:input :snd-pcm-stream-capture)
+			      (:output :snd-pcm-stream-playback))
+		 :buffer buffer :buffer-size (length buffer)
+		 :pcm-format (let ((eltype (array-element-type buffer)))
+			       (cond ((eql eltype 'single-float) :snd-pcm-format-float-le)
+				     ((eql eltype 'double-float) :snd-pcm-format-float64-le)
+				     (t (error "Unsupported array element type ~A" eltype)))))))
+
+(defmethod alsa-close ((pcm pcm-stream))
+  (snd-pcm-close (handle pcm)))
+
+(defmethod alsa-write ((pcm pcm-stream)))
