@@ -98,22 +98,33 @@
    (buffer :reader buffer :initarg :buffer)
    (buffer-size :reader buffer-size :initarg :buffer-size)
    (element-type :reader element-type :initarg :element-type)
+   (sample-rate :reader sample-rate :initarg :sample-rate :initform 44100)
    (direction :reader direction :initarg :direction)))
 
-(defun alsa-open (buffer-size element-type &key direction)
-  (make-instance 'pcm-stream
-		 :direction (case direction
-			      (:input :snd-pcm-stream-capture)
-			      (:output :snd-pcm-stream-playback))
-		 :element-type element-type
-		 :buffer (foreign-alloc element-type :count buffer-size) :buffer-size buffer-size
-		 :pcm-format (etypecase element-type
-			       (single-float :snd-pcm-format-float-le)
-			       (double-float :snd-pcm-format-float64-le)
-			       ((unsigned-byte 8) :snd-pcm-format-u8-le)
-			       ((signed-byte 8) :snd-pcm-format-s8-le)
-			       ((unsigned-byte 16) :snd-pcm-format-u16-le)
-			       ((signed-byte 16) :snd-pcm-format-s16-le)))))
+(defun alsa-open (device buffer-size element-type &key direction)
+  (let ((pcs (make-instance 'pcm-stream
+			    :direction (case direction
+					 (:input :snd-pcm-stream-capture)
+					 (:output :snd-pcm-stream-playback))
+			    :element-type element-type
+			    :buffer (foreign-alloc element-type :count buffer-size) :buffer-size buffer-size
+			    :pcm-format (etypecase element-type
+					  (single-float :snd-pcm-format-float-le)
+					  (double-float :snd-pcm-format-float64-le)
+					  ((unsigned-byte 8) :snd-pcm-format-u8-le)
+					  ((signed-byte 8) :snd-pcm-format-s8-le)
+					  ((unsigned-byte 16) :snd-pcm-format-u16-le)
+					  ((signed-byte 16) :snd-pcm-format-s16-le)))))
+    
+    (snd-pcm-open (handle pcs) device (direction pcs) 0)
+    (snd-pcm-hw-params-malloc (handle pcs))
+    (snd-pcm-hw-params-any (handle pcs) (params pcs))
+    (snd-pcm-hw-params-set-access (handle pcs) (params pcs) :snd-pcm-access-rw-interleaved)
+    (snd-pcm-hw-params-set-format (handle pcs) (params pcs) (pcm-format pcs))
+    (snd-pcm-hw-params-set-rate (handle pcs) (params pcs) (sample-rate pcs) 0)
+    (snd-pcm-hw-params-set-channels (handle pcs) (params pcs) 2)
+    (snd-pcm-hw-params (handle pcs) (params pcs))
+    (snd-pcm-hw-params-free (params pcs)))))
 
 (defmethod ref ((pcm pcm-stream) position)
   (mem-aref (buffer pcm) (element-type pcm) position))
@@ -121,4 +132,7 @@
 (defmethod alsa-close ((pcm pcm-stream))
   (snd-pcm-close (handle pcm)))
 
-(defmethod alsa-write ((pcm pcm-stream)))
+(defmethod alsa-write ((pcm pcm-stream))
+  (assert (eql (direction pcm) :output))
+  (with-slots (buffer element-type) pcm))
+
