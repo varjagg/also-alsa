@@ -91,9 +91,12 @@
 
 (defcfun "snd_pcm_readi" snd-pcm-sframes (pcm :pointer) (buffer :pointer) (size snd-pcm-uframes))
 
+(defun deref (var)
+  (mem-ref var :pointer))
+
 (defclass pcm-stream ()
-  ((handle :reader handle :initform (null-pointer))
-   (params :reader params :initform (null-pointer))
+  ((handle :reader handle :initform (foreign-alloc :pointer :initial-contents (list (null-pointer))))
+   (params :reader params :initform (foreign-alloc :pointer :initial-contents (list (null-pointer))))
    (pcm-format :reader pcm-format :initarg :pcm-format :initform :snd-pcm-format-s16-le)
    (buffer :reader buffer :initarg :buffer)
    (buffer-size :reader buffer-size :initarg :buffer-size)
@@ -126,22 +129,23 @@
 					  (((signed-byte 16)) :snd-pcm-format-s16-le)))))
     
     (snd-pcm-open (handle pcs) device (direction pcs) 0)
-    (snd-pcm-hw-params-malloc (handle pcs))
-    (snd-pcm-hw-params-any (handle pcs) (params pcs))
-    (snd-pcm-hw-params-set-access (handle pcs) (params pcs) :snd-pcm-access-rw-interleaved)
-    (snd-pcm-hw-params-set-format (handle pcs) (params pcs) (pcm-format pcs))
-    (snd-pcm-hw-params-set-rate (handle pcs) (params pcs) (sample-rate pcs) 0)
-    (snd-pcm-hw-params-set-channels (handle pcs) (params pcs) 2)
-    (snd-pcm-hw-params (handle pcs) (params pcs))
-    (snd-pcm-hw-params-free (params pcs))))
+    (snd-pcm-hw-params-malloc (params pcs))
+    (snd-pcm-hw-params-any (deref (handle pcs)) (deref (params pcs)))
+    (snd-pcm-hw-params-set-access (deref (handle pcs)) (deref (params pcs)) :snd-pcm-access-rw-interleaved)
+    (snd-pcm-hw-params-set-format (deref (handle pcs)) (deref (params pcs)) (pcm-format pcs))
+    (snd-pcm-hw-params-set-rate (deref (handle pcs)) (deref (params pcs)) (sample-rate pcs) 0)
+    (snd-pcm-hw-params-set-channels (deref (handle pcs)) (deref (params pcs)) 2)
+    (snd-pcm-hw-params (deref (handle pcs)) (deref (params pcs)))
+    (snd-pcm-hw-params-free (deref (params pcs)))
+    pcs))
 
 (defmethod ref ((pcm pcm-stream) position)
-  (mem-aref (buffer pcm) (element-type pcm) position))
+  (mem-aref (buffer pcm) (alsa-element-type (element-type pcm)) position))
 
 (defmethod alsa-close ((pcm pcm-stream))
-  (snd-pcm-close (handle pcm)))
+  (snd-pcm-close (deref (handle pcm))))
 
 (defmethod alsa-write ((pcm pcm-stream))
-  (assert (eql (direction pcm) :output))
+b  (assert (eql (direction pcm) :output))
   (with-slots (buffer element-type) pcm))
 
