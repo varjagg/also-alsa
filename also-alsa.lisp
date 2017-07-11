@@ -3,7 +3,7 @@
 (in-package #:also-alsa)
 
 (define-foreign-library libasound
-  (:unix "libasound.so")
+  (:unix "libasound.so.2")
   (t (:default "libasound.so")))
 
 (use-foreign-library libasound)
