@@ -94,6 +94,10 @@
 (defun deref (var)
   (mem-ref var :pointer))
 
+(defun ensure-success (value)
+  (unless (zerop value)
+    (error "ALSA error: ~A" (snd-strerror value))))
+
 (defclass pcm-stream ()
   ((handle :reader handle :initform (foreign-alloc :pointer :initial-contents (list (null-pointer))))
    (params :reader params :initform (foreign-alloc :pointer :initial-contents (list (null-pointer))))
@@ -128,14 +132,14 @@
 					  (((unsigned-byte 16) :snd-pcm-format-u16-le))
 					  (((signed-byte 16)) :snd-pcm-format-s16-le)))))
     
-    (snd-pcm-open (handle pcs) device (direction pcs) 0)
-    (snd-pcm-hw-params-malloc (params pcs))
-    (snd-pcm-hw-params-any (deref (handle pcs)) (deref (params pcs)))
-    (snd-pcm-hw-params-set-access (deref (handle pcs)) (deref (params pcs)) :snd-pcm-access-rw-interleaved)
-    (snd-pcm-hw-params-set-format (deref (handle pcs)) (deref (params pcs)) (pcm-format pcs))
-    (snd-pcm-hw-params-set-rate (deref (handle pcs)) (deref (params pcs)) (sample-rate pcs) 0)
-    (snd-pcm-hw-params-set-channels (deref (handle pcs)) (deref (params pcs)) 2)
-    (snd-pcm-hw-params (deref (handle pcs)) (deref (params pcs)))
+    (ensure-success (snd-pcm-open (handle pcs) device (direction pcs) 0))
+    (ensure-success (snd-pcm-hw-params-malloc (params pcs)))
+    (ensure-success (snd-pcm-hw-params-any (deref (handle pcs)) (deref (params pcs))))
+    (ensure-success (snd-pcm-hw-params-set-access (deref (handle pcs)) (deref (params pcs)) :snd-pcm-access-rw-interleaved))
+    (ensure-success (snd-pcm-hw-params-set-format (deref (handle pcs)) (deref (params pcs)) (pcm-format pcs)))
+    (ensure-success (snd-pcm-hw-params-set-rate (deref (handle pcs)) (deref (params pcs)) (sample-rate pcs) 0))
+    (ensure-success (snd-pcm-hw-params-set-channels (deref (handle pcs)) (deref (params pcs)) 2))
+    (ensure-success (snd-pcm-hw-params (deref (handle pcs)) (deref (params pcs))))
     (snd-pcm-hw-params-free (deref (params pcs)))
     pcs))
 
@@ -143,9 +147,10 @@
   (mem-aref (buffer pcm) (alsa-element-type (element-type pcm)) position))
 
 (defmethod alsa-close ((pcm pcm-stream))
-  (snd-pcm-close (deref (handle pcm))))
+  (snd-pcm-close (deref (handle pcm)))
+  pcm)
 
 (defmethod alsa-write ((pcm pcm-stream))
-b  (assert (eql (direction pcm) :output))
+  (assert (eql (direction pcm) :output))
   (with-slots (buffer element-type) pcm))
 
