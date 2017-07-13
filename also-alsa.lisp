@@ -146,11 +146,14 @@
 (defmethod ref ((pcm pcm-stream) position)
   (mem-aref (buffer pcm) (alsa-element-type (element-type pcm)) position))
 
+(defmethod (setf ref) (value (pcm pcm-stream) position)
+  (setf (mem-aref (buffer pcm) (alsa-element-type (element-type pcm)) position) value))
+
 (defmethod alsa-close ((pcm pcm-stream))
   (snd-pcm-close (deref (handle pcm)))
   pcm)
 
 (defmethod alsa-write ((pcm pcm-stream))
   (assert (eql (direction pcm) :output))
-  (with-slots (buffer element-type) pcm))
+  (snd-pcm-writei (deref (handle pcm)) (buffer pcm) (buffer-size pcm)))
 
