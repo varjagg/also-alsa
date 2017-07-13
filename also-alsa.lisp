@@ -106,7 +106,8 @@
    (buffer-size :reader buffer-size :initarg :buffer-size)
    (element-type :reader element-type :initarg :element-type)
    (sample-rate :reader sample-rate :initarg :sample-rate :initform 44100)
-   (direction :reader direction :initarg :direction)))
+   (direction :reader direction :initarg :direction)
+   (channels-count :reader channels-count :initarg :channels-count)))
 
 (defun alsa-element-type (type)
   (ecase type
@@ -117,13 +118,15 @@
     (((unsigned-byte 16)) :uint16)
     (((signed-byte 16)) :int16)))
 
-(defun alsa-open (device buffer-size element-type &key direction)
+(defun alsa-open (device buffer-size element-type &key direction (sample-rate 44100) (channels-count 2))
   (let ((pcs (make-instance 'pcm-stream
 			    :direction (case direction
 					 (:input :snd-pcm-stream-capture)
 					 (:output :snd-pcm-stream-playback))
 			    :element-type element-type
 			    :buffer (foreign-alloc (alsa-element-type element-type) :count buffer-size) :buffer-size buffer-size
+			    :channels-count channels-count
+			    :sample-rate sample-rate
 			    :pcm-format (ecase element-type
 					  (single-float :snd-pcm-format-float-le)
 					  (double-float :snd-pcm-format-float64-le)
@@ -138,7 +141,7 @@
     (ensure-success (snd-pcm-hw-params-set-access (deref (handle pcs)) (deref (params pcs)) :snd-pcm-access-rw-interleaved))
     (ensure-success (snd-pcm-hw-params-set-format (deref (handle pcs)) (deref (params pcs)) (pcm-format pcs)))
     (ensure-success (snd-pcm-hw-params-set-rate (deref (handle pcs)) (deref (params pcs)) (sample-rate pcs) 0))
-    (ensure-success (snd-pcm-hw-params-set-channels (deref (handle pcs)) (deref (params pcs)) 2))
+    (ensure-success (snd-pcm-hw-params-set-channels (deref (handle pcs)) (deref (params pcs)) (channels-count pcs)))
     (ensure-success (snd-pcm-hw-params (deref (handle pcs)) (deref (params pcs))))
     (snd-pcm-hw-params-free (deref (params pcs)))
     pcs))
