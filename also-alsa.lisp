@@ -157,6 +157,6 @@
   pcm)
 
 (defmethod alsa-write ((pcm pcm-stream))
-  (assert (eql (direction pcm) :output))
+  (assert (eql (direction pcm) :snd-pcm-stream-playback))
   (snd-pcm-writei (deref (handle pcm)) (buffer pcm) (buffer-size pcm)))
 
