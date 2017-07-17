@@ -150,6 +150,7 @@
   (mem-aref (buffer pcm) (alsa-element-type (element-type pcm)) position))
 
 (defmethod (setf ref) (value (pcm pcm-stream) position)
+  (assert (eql (element-type pcm) (type-of value)))
   (setf (mem-aref (buffer pcm) (alsa-element-type (element-type pcm)) position) value))
 
 (defmethod alsa-close ((pcm pcm-stream))
