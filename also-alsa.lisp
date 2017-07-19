@@ -124,7 +124,9 @@
 					 (:input :snd-pcm-stream-capture)
 					 (:output :snd-pcm-stream-playback))
 			    :element-type element-type
-			    :buffer (foreign-alloc (alsa-element-type element-type) :count buffer-size) :buffer-size buffer-size
+			    :buffer (foreign-alloc (alsa-element-type element-type)
+						   :count (* (cffi:foreign-type-size (alsa-element-type element-type)) buffer-size))
+			    :buffer-size buffer-size
 			    :channels-count channels-count
 			    :sample-rate sample-rate
 			    :pcm-format (ecase element-type
@@ -144,6 +146,7 @@
     (ensure-success (snd-pcm-hw-params-set-channels (deref (handle pcs)) (deref (params pcs)) (channels-count pcs)))
     (ensure-success (snd-pcm-hw-params (deref (handle pcs)) (deref (params pcs))))
     (snd-pcm-hw-params-free (deref (params pcs)))
+    (ensure-success (snd-pcm-prepare (deref (handle pcs))))                                                                                         
     pcs))
 
 (defmethod ref ((pcm pcm-stream) position)
