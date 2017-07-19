@@ -164,5 +164,5 @@
   (assert (eql (direction pcm) :snd-pcm-stream-playback))
   (let ((result (snd-pcm-writei (deref (handle pcm)) (buffer pcm) (buffer-size pcm))))                                                              
     (unless (= result (buffer-size pcm))                                                                                                            
-      (error "Error writing ALSA buffer: size ~D" result))))
+      (error "ALSA error: ~A" result))))
 
