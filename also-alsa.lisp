@@ -159,5 +159,7 @@
 
 (defmethod alsa-write ((pcm pcm-stream))
   (assert (eql (direction pcm) :snd-pcm-stream-playback))
-  (snd-pcm-writei (deref (handle pcm)) (buffer pcm) (buffer-size pcm)))
+  (let ((result (snd-pcm-writei (deref (handle pcm)) (buffer pcm) (buffer-size pcm))))                                                              
+    (unless (= result (buffer-size pcm))                                                                                                            
+      (error "Error writing ALSA buffer: size ~D" result))))
 
