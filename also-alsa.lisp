@@ -161,6 +161,7 @@
 
     (ensure-success (snd-pcm-sw-params-malloc (swparams pcs)))
     (ensure-success (snd-pcm-sw-params-current (deref (handle pcs)) (deref (swparams pcs))))
+    #+nil(ensure-success (snd-pcm-sw-params-set-start-threshold (deref (handle pcs)) (deref (swparams pcs))))
     pcs))
 
 (defmethod ref ((pcm pcm-stream) position)
