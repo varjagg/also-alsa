@@ -159,9 +159,9 @@
     (snd-pcm-hw-params-free (deref (params pcs)))
     (ensure-success (snd-pcm-prepare (deref (handle pcs))))
 
-    (ensure-success (snd-pcm-sw-params-malloc (swparams pcs)))
-    (ensure-success (snd-pcm-sw-params-current (deref (handle pcs)) (deref (swparams pcs))))
-    #+nil(ensure-success (snd-pcm-sw-params-set-start-threshold (deref (handle pcs)) (deref (swparams pcs))))
+    ;; (ensure-success (snd-pcm-sw-params-malloc (swparams pcs)))
+    ;; (ensure-success (snd-pcm-sw-params-current (deref (handle pcs)) (deref (swparams pcs))))
+    ;; (ensure-success (snd-pcm-sw-params-set-start-threshold (deref (handle pcs)) (deref (swparams pcs))))
     pcs))
 
 (defmethod ref ((pcm pcm-stream) position)
@@ -181,3 +181,9 @@
     (unless (= result (buffer-size pcm))                                                                                                            
       (error "ALSA error: ~A" result))))
 
+(defmethod alsa-read ((pcm pcm-stream))
+  (assert (eql (direction pcm) :snd-pcm-stream-capture))
+  (let ((result (snd-pcm-readi (deref (handle pcm)) (buffer pcm) (buffer-size pcm))))                                                              
+    (unless (= result (buffer-size pcm))                                                                                                            
+      (error "ALSA error: ~A" result))
+    result))
