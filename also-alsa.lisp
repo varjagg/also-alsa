@@ -91,6 +91,16 @@
 
 (defcfun "snd_pcm_readi" snd-pcm-sframes (pcm :pointer) (buffer :pointer) (size snd-pcm-uframes))
 
+(defcfun "snd_pcm_sw_params_malloc" :int (dptr :pointer))
+
+(defcfun "snd_pcm_sw_params_current" :int (pcm :pointer) (swparams :pointer))
+
+(defcfun "snd_pcm_sw_params_set_start_threshold" :int (pcm :pointer) (swparams :pointer) (val :ulong))
+
+(defcfun "snd_pcm_sw_params_set_avail_min" :int (pcm :pointer) (swparams :pointer) (val :ulong))
+
+(defcfun "snd_pcm_sw_params" :int (pcm :pointer) (swparams :pointer))
+
 (defun deref (var)
   (mem-ref var :pointer))
 
@@ -101,6 +111,7 @@
 (defclass pcm-stream ()
   ((handle :reader handle :initform (foreign-alloc :pointer :initial-contents (list (null-pointer))))
    (params :reader params :initform (foreign-alloc :pointer :initial-contents (list (null-pointer))))
+   (swparams :reader swparams :initform (foreign-alloc :pointer :initial-contents (list (null-pointer))))
    (pcm-format :reader pcm-format :initarg :pcm-format :initform :snd-pcm-format-s16-le)
    (buffer :reader buffer :initarg :buffer)
    (buffer-size :reader buffer-size :initarg :buffer-size)
@@ -146,7 +157,10 @@
     (ensure-success (snd-pcm-hw-params-set-channels (deref (handle pcs)) (deref (params pcs)) (channels-count pcs)))
     (ensure-success (snd-pcm-hw-params (deref (handle pcs)) (deref (params pcs))))
     (snd-pcm-hw-params-free (deref (params pcs)))
-    (ensure-success (snd-pcm-prepare (deref (handle pcs))))                                                                                         
+    (ensure-success (snd-pcm-prepare (deref (handle pcs))))
+
+    (ensure-success (snd-pcm-sw-params-malloc (swparams pcs)))
+    (ensure-success (snd-pcm-sw-params-current (deref (handle pcs)) (deref (swparams pcs))))
     pcs))
 
 (defmethod ref ((pcm pcm-stream) position)
