@@ -191,4 +191,5 @@
 (defmethod contents-to-lisp ((pcm pcm-stream))
   (let ((result (make-array (buffer-size pcm) :element-type (element-type pcm))))
     (loop for i from 0 below (buffer-size pcm) do
-	 (setf (aref result i) (ref pcm i)))))
+	 (setf (aref result i) (ref pcm i)))
+    result))
