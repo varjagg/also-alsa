@@ -186,7 +186,7 @@
   (let ((result (snd-pcm-readi (deref (handle pcm)) (buffer pcm) (buffer-size pcm))))
     (unless (= result (buffer-size pcm))
       (error "ALSA error: ~A" result))
-    result))
+    pcm))
 
 (defmethod contents-to-lisp ((pcm pcm-stream))
   (let ((result (make-array (buffer-size pcm) :element-type (element-type pcm))))
