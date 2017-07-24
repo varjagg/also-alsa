@@ -183,7 +183,12 @@
 
 (defmethod alsa-read ((pcm pcm-stream))
   (assert (eql (direction pcm) :snd-pcm-stream-capture))
-  (let ((result (snd-pcm-readi (deref (handle pcm)) (buffer pcm) (buffer-size pcm))))                                                              
-    (unless (= result (buffer-size pcm))                                                                                                            
+  (let ((result (snd-pcm-readi (deref (handle pcm)) (buffer pcm) (buffer-size pcm))))
+    (unless (= result (buffer-size pcm))
       (error "ALSA error: ~A" result))
     result))
+
+(defmethod contents-to-lisp ((pcm pcm-stream))
+  (let ((result (make-array (buffer-size pcm) :element-type (element-type pcm))))
+    (loop for i from 0 below (buffer-size pcm) do
+	 (setf (aref result i) (ref pcm i)))))
