@@ -129,7 +129,7 @@
     (((unsigned-byte 16)) :uint16)
     (((signed-byte 16)) :int16)))
 
-(defun alsa-open (device buffer-size element-type &key direction (sample-rate 44100) (channels-count 2))
+(defun alsa-open (device buffer-size element-type &key direction (sample-rate 44100) (channels-count 2) start-threshold)
   (let ((pcs (make-instance 'pcm-stream
 			    :direction (case direction
 					 (:input :snd-pcm-stream-capture)
@@ -159,9 +159,12 @@
     (snd-pcm-hw-params-free (deref (params pcs)))
     (ensure-success (snd-pcm-prepare (deref (handle pcs))))
 
-    ;; (ensure-success (snd-pcm-sw-params-malloc (swparams pcs)))
-    ;; (ensure-success (snd-pcm-sw-params-current (deref (handle pcs)) (deref (swparams pcs))))
-    ;; (ensure-success (snd-pcm-sw-params-set-start-threshold (deref (handle pcs)) (deref (swparams pcs))))
+    (ensure-success (snd-pcm-sw-params-malloc (swparams pcs)))
+    (ensure-success (snd-pcm-sw-params-current (deref (handle pcs)) (deref (swparams pcs))))
+    (when start-threshold
+      (ensure-success (snd-pcm-sw-params-set-start-threshold (deref (handle pcs)) (deref (swparams pcs)) start-threshold)))
+    (ensure-success (snd-pcm-sw-params (deref (handle pcs)) (deref (params pcs))))
+
     pcs))
 
 (defmethod ref ((pcm pcm-stream) position)
