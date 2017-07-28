@@ -95,6 +95,8 @@
 
 (defcfun "snd_pcm_sw_params_current" :int (pcm :pointer) (swparams :pointer))
 
+(defcfun "snd_pcm_sw_params_get_start_threshold" :int (pcm :pointer) (swparams :pointer) (pval (:pointer :ulong)))
+
 (defcfun "snd_pcm_sw_params_set_start_threshold" :int (pcm :pointer) (swparams :pointer) (val :ulong))
 
 (defcfun "snd_pcm_sw_params_set_avail_min" :int (pcm :pointer) (swparams :pointer) (val :ulong))
