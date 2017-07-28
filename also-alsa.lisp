@@ -91,6 +91,8 @@
 
 (defcfun "snd_pcm_readi" snd-pcm-sframes (pcm :pointer) (buffer :pointer) (size snd-pcm-uframes))
 
+(defcfun "snd_pcm_delay" :int (pcm :pointer) (delayp (:pointer :long)))
+
 (defcfun "snd_pcm_sw_params_malloc" :int (dptr :pointer))
 
 (defcfun "snd_pcm_sw_params_current" :int (pcm :pointer) (swparams :pointer))
@@ -165,7 +167,7 @@
     (ensure-success (snd-pcm-sw-params-current (deref (handle pcs)) (deref (swparams pcs))))
     (when start-threshold
       (ensure-success (snd-pcm-sw-params-set-start-threshold (deref (handle pcs)) (deref (swparams pcs)) start-threshold)))
-    (ensure-success (snd-pcm-sw-params (deref (handle pcs)) (deref (params pcs))))
+    (ensure-success (snd-pcm-sw-params (deref (handle pcs)) (deref (swparams pcs))))
 
     pcs))
 
