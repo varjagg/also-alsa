@@ -140,8 +140,8 @@
 					 (:output :snd-pcm-stream-playback))
 			    :element-type element-type
 			    :buffer (foreign-alloc (alsa-element-type element-type)
-						   :count (* (cffi:foreign-type-size (alsa-element-type element-type)) buffer-size))
-			    :buffer-size buffer-size
+						   :count (* (cffi:foreign-type-size (alsa-element-type element-type)) buffer-size channels-count))
+			    :buffer-size (* buffer-size channel-count) ;number of samples really
 			    :channels-count channels-count
 			    :sample-rate sample-rate
 			    :pcm-format (cond ((eql element-type 'single-float) :snd-pcm-format-float-le)
