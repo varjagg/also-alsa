@@ -125,13 +125,13 @@
    (channels-count :reader channels-count :initarg :channels-count)))
 
 (defun alsa-element-type (type)
-  (ecase type
-    (single-float :float)
-    (double-float :double)
-    (((unsigned-byte 8)) :uint8)
-    (((signed-byte 8)) :int8)
-    (((unsigned-byte 16)) :uint16)
-    (((signed-byte 16)) :int16)))
+  (cond ((eql type 'single-float) :float)
+	((eql type 'double-float) :double)
+	((equalp type '(unsigned-byte 8)) :uint8)
+	((equalp type '(signed-byte 8)) :int8)
+	((equalp type '(unsigned-byte 16)) :uint16)
+	((equalp type '(signed-byte 16)) :int16)
+	(t (error "Invalid base type ~A" type))))
 
 (defun alsa-open (device buffer-size element-type &key direction (sample-rate 44100) (channels-count 2) start-threshold)
   (let ((pcs (make-instance 'pcm-stream
@@ -144,13 +144,13 @@
 			    :buffer-size buffer-size
 			    :channels-count channels-count
 			    :sample-rate sample-rate
-			    :pcm-format (ecase element-type
-					  (single-float :snd-pcm-format-float-le)
-					  (double-float :snd-pcm-format-float64-le)
-					  (((unsigned-byte 8)) :snd-pcm-format-u8-le)
-					  (((signed-byte 8)) :snd-pcm-format-s8-le)
-					  (((unsigned-byte 16) :snd-pcm-format-u16-le))
-					  (((signed-byte 16)) :snd-pcm-format-s16-le)))))
+			    :pcm-format (cond ((eql element-type 'single-float) :snd-pcm-format-float-le)
+					      ((eql element-type 'double-float) :snd-pcm-format-float64-le)
+					      ((equalp element-type '(unsigned-byte 8)) :snd-pcm-format-u8-le)
+					      ((equalp element-type '(signed-byte 8)) :snd-pcm-format-s8-le)
+					      ((equalp element-type '(unsigned-byte 16)) :snd-pcm-format-u16-le)
+					      ((equalp element-type '(signed-byte 16)) :snd-pcm-format-s16-le)
+					      (t (error "Invalid base type ~A" element-type))))))
     
     (ensure-success (snd-pcm-open (handle pcs) device (direction pcs) 0))
     (ensure-success (snd-pcm-hw-params-malloc (params pcs)))
@@ -175,7 +175,7 @@
   (mem-aref (buffer pcm) (alsa-element-type (element-type pcm)) position))
 
 (defmethod (setf ref) (value (pcm pcm-stream) position)
-  (assert (eql (element-type pcm) (type-of value)))
+  #+(or)(assert (eql (element-type pcm) (type-of value)))
   (setf (mem-aref (buffer pcm) (alsa-element-type (element-type pcm)) position) value))
 
 (defmethod alsa-close ((pcm pcm-stream))
@@ -184,8 +184,8 @@
 
 (defmethod alsa-write ((pcm pcm-stream))
   (assert (eql (direction pcm) :snd-pcm-stream-playback))
-  (let ((result (snd-pcm-writei (deref (handle pcm)) (buffer pcm) (buffer-size pcm))))                                                              
-    (unless (= result (buffer-size pcm))                                                                                                            
+  (let ((result (snd-pcm-writei (deref (handle pcm)) (buffer pcm) (buffer-size pcm))))
+    (unless (= result (buffer-size pcm))
       (error "ALSA error: ~A" result))))
 
 (defmethod alsa-read ((pcm pcm-stream))
