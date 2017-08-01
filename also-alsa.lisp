@@ -167,7 +167,7 @@
     (ensure-success (snd-pcm-hw-params (deref (handle pcs)) (deref (params pcs))))
 
     (cffi:with-foreign-object (period :uint)
-      (ensure-success (snd-pcm-hw-params-get-period-size (deref (handle pcs)) period (cffi:null-pointer)))
+      (ensure-success (snd-pcm-hw-params-get-period-size (deref (params pcs)) period (cffi:null-pointer)))
       (format t "Period size: ~D" period))
 
     (snd-pcm-hw-params-free (deref (params pcs)))
