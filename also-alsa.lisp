@@ -215,7 +215,8 @@
 	 (setf (aref result i) (ref pcm i)))
     result))
 
-(defmacro with-alsa-device ((stream device buffer-size element-type &key direction sample-rate channels-count) &body body)
+(defmacro with-alsa-device ((stream device buffer-size element-type &key direction (sample-rate 44100) (channels-count 2)) &body body)
+  (assert direction)
   `(let ((,stream (also-alsa:alsa-open ,device ,buffer-size ,element-type
 				       :direction ,direction :sample-rate ,sample-rate :channels-count ,channels-count)))
      (unwind-protect
