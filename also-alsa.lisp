@@ -2,6 +2,9 @@
 
 (in-package #:also-alsa)
 
+(eval-when (:compile-toplevel)
+  (defconstant +epipe+ 32))
+
 (define-foreign-library libasound
   (:unix "libasound.so.2")
   (t (:default "libasound.so")))
@@ -76,6 +79,8 @@
 (defcfun "snd_pcm_hw_params_set_rate" :int (pcm :pointer) (params :pointer) (val :int) (dir :int))
 
 (defcfun "snd_pcm_hw_params_set_channels" :int (pcm :pointer) (params :pointer) (val :int))
+
+(defcfun "snd_pcm_hw_params_get_period_size" :int (pcm :pointer) (valp (:pointer :ulong)) (dir :pointer))
 
 (defcfun "snd_pcm_hw_params" :int (pcm :pointer) (params :pointer))
 
@@ -160,9 +165,14 @@
     (ensure-success (snd-pcm-hw-params-set-rate (deref (handle pcs)) (deref (params pcs)) (sample-rate pcs) 0))
     (ensure-success (snd-pcm-hw-params-set-channels (deref (handle pcs)) (deref (params pcs)) (channels-count pcs)))
     (ensure-success (snd-pcm-hw-params (deref (handle pcs)) (deref (params pcs))))
+
+    (cffi:with-foreign-object (period :uint)
+      (ensure-success (snd-pcm-hw-params-get-period-size (deref (handle pcs)) period (cffi:null-pointer)))
+      (format t "Period size: ~D" period))
+
     (snd-pcm-hw-params-free (deref (params pcs)))
     (ensure-success (snd-pcm-prepare (deref (handle pcs))))
-
+    
     (ensure-success (snd-pcm-sw-params-malloc (swparams pcs)))
     (ensure-success (snd-pcm-sw-params-current (deref (handle pcs)) (deref (swparams pcs))))
     (when start-threshold
@@ -186,13 +196,17 @@
   (assert (eql (direction pcm) :snd-pcm-stream-playback))
   (let ((result (snd-pcm-writei (deref (handle pcm)) (buffer pcm) (buffer-size pcm))))
     (unless (= result (buffer-size pcm))
-      (error "ALSA error: ~A" result))))
+      (if (eql result (- +epipe+))
+	  (progn (format t "Underrun!") (snd-pcm-prepare (deref (handle pcm))))
+	  (error "ALSA error: ~A" result)))))
 
 (defmethod alsa-read ((pcm pcm-stream))
   (assert (eql (direction pcm) :snd-pcm-stream-capture))
   (let ((result (snd-pcm-readi (deref (handle pcm)) (buffer pcm) (buffer-size pcm))))
     (unless (= result (buffer-size pcm))
-      (error "ALSA error: ~A" result))
+      (if (eql result (- +epipe+))
+	  (progn (format t "Underrun!") (snd-pcm-prepare (deref (handle pcm))))
+	  (error "ALSA error: ~A" result)))
     pcm))
 
 (defmethod contents-to-lisp ((pcm pcm-stream))
