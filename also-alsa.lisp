@@ -90,6 +90,10 @@
 
 (defcfun "snd_pcm_prepare" :int (pcm :pointer))
 
+(defcfun "snd_pcm_start" :int (pcm :pointer))
+
+(defcfun "snd_pcm_drain" :int (pcm :pointer))
+
 (defcfun "snd_pcm_close" :int (pcm :pointer))
 
 (defcfun "snd_pcm_writei" snd-pcm-sframes (pcm :pointer) (buffer :pointer) (size snd-pcm-uframes))
@@ -179,6 +183,7 @@
       (ensure-success (snd-pcm-sw-params-set-start-threshold (deref (handle pcs)) (deref (swparams pcs)) start-threshold)))
     (ensure-success (snd-pcm-sw-params (deref (handle pcs)) (deref (swparams pcs))))
 
+    (ensure-success (snd-pcm-start) (deref (handle pcs)))
     pcs))
 
 (defmethod ref ((pcm pcm-stream) position)
@@ -189,6 +194,7 @@
   (setf (mem-aref (buffer pcm) (alsa-element-type (element-type pcm)) position) value))
 
 (defmethod alsa-close ((pcm pcm-stream))
+  (snd-pcm-drain (deref (handle pcm)))
   (snd-pcm-close (deref (handle pcm)))
   pcm)
 
