@@ -182,8 +182,6 @@
     (when start-threshold
       (ensure-success (snd-pcm-sw-params-set-start-threshold (deref (handle pcs)) (deref (swparams pcs)) start-threshold)))
     (ensure-success (snd-pcm-sw-params (deref (handle pcs)) (deref (swparams pcs))))
-
-    (ensure-success (snd-pcm-start (deref (handle pcs))))
     pcs))
 
 (defmethod ref ((pcm pcm-stream) position)
