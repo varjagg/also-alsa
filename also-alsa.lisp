@@ -62,11 +62,24 @@
   :snd-pcm-format-u24-3le
   :snd-pcm-format-u24-3be)
 
+(defcenum snd-pcm-state
+  :snd-pcm-state-open
+  :snd-pcm-state-setup
+  :snd-pcm-state-prepared
+  :snd-pcm-state-running
+  :snd-pcm-state-xrun
+  :snd-pcm-state-draining
+  :snd-pcm-state-paused
+  :snd-pcm-state-suspended
+  :snd-pcm-state-disconnected)
+
 (defctype snd-pcm-uframes :ulong)
 
 (defctype snd-pcm-sframes :long)
 
 (defcfun "snd_pcm_open" :int (pcm :pointer) (name :string) (stream snd-pcm-stream) (mode :int))
+
+(defcfun "snd_pcm_state" snd-pcm-state (pcm :pointer))
 
 (defcfun "snd_pcm_hw_params_malloc" :int (dptr :pointer))
 
