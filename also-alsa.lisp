@@ -223,7 +223,8 @@
 (defmethod alsa-close ((pcm pcm-stream))
   (when (eq (status pcm) :open)
     (snd-pcm-drain (deref (handle pcm)))
-    (snd-pcm-close (deref (handle pcm))))
+    (snd-pcm-close (deref (handle pcm)))
+    (cffi:foreign-free (buffer pcm)))
   (setf (status pcm) :closed)
   pcm)
 
