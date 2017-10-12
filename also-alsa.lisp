@@ -207,7 +207,7 @@
 (defmethod alsa-reopen ((pcs pcm-stream) device buffer-size element-type &key direction (sample-rate 44100) (channels-count 2))
    (when (or (eql (status pcs) :initial)
 	     (not (and (equal device (device pcs))
-		       (= buffer-size (buffer-size pcs))
+		       (= (* buffer-size channel-count) (buffer-size pcs))
 		       (equal element-type (element-type pcs))
 		       (eql direction (direction pcs))
 		       (= sample-rate (sample-rate pcs))
