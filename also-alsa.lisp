@@ -107,6 +107,8 @@
 
 (defcfun "snd_pcm_drain" :int (pcm :pointer))
 
+(defcfun "snd_pcm_drop" :int (pcm :pointer))
+
 (defcfun "snd_pcm_close" :int (pcm :pointer))
 
 (defcfun "snd_pcm_writei" snd-pcm-sframes (pcm :pointer) (buffer :pointer) (size snd-pcm-uframes))
@@ -205,33 +207,35 @@
   (:documentation "Reopens the stream. If all parameters are the same, just keeps the exiting one."))
 
 (defmethod alsa-reopen ((pcs pcm-stream) device buffer-size element-type &key direction (sample-rate 44100) (channels-count 2))
-   (when (or (eql (status pcs) :initial)
-	     (not (and (equal device (device pcs))
-		       (= (* buffer-size channels-count) (buffer-size pcs))
-		       (equal element-type (element-type pcs))
-		       (eql direction (direction pcs))
-		       (= sample-rate (sample-rate pcs))
-		       (= channels-count (channels-count pcs)))))
-     (when (eql (status pcs) :open)
-       (alsa-close pcs))
-     (alsa-open-2 (reinitialize-instance pcs
-					 :direction (case direction
-						      (:input :snd-pcm-stream-capture)
-						      (:output :snd-pcm-stream-playback))
-					 :device device
-					 :element-type element-type
-					 :buffer (foreign-alloc (alsa-element-type element-type)
-								:count (* (cffi:foreign-type-size (alsa-element-type element-type)) buffer-size channels-count))
-					 :buffer-size (* buffer-size channels-count) ;number of samples really
-					 :channels-count channels-count
-					 :sample-rate sample-rate
-					 :pcm-format (cond ((eql element-type 'single-float) :snd-pcm-format-float-le)
-							   ((eql element-type 'double-float) :snd-pcm-format-float64-le)
-							   ((equalp element-type '(unsigned-byte 8)) :snd-pcm-format-u8-le)
-							   ((equalp element-type '(signed-byte 8)) :snd-pcm-format-s8-le)
-							   ((equalp element-type '(unsigned-byte 16)) :snd-pcm-format-u16-le)
-							   ((equalp element-type '(signed-byte 16)) :snd-pcm-format-s16-le)
-							   (t (error "Invalid base type ~A" element-type))))))
+   (if (or (eql (status pcs) :initial)
+	   (not (and (equal device (device pcs))
+		     (= (* buffer-size channels-count) (buffer-size pcs))
+		     (equal element-type (element-type pcs))
+		     (eql direction (direction pcs))
+		     (= sample-rate (sample-rate pcs))
+		     (= channels-count (channels-count pcs)))))
+       (progn
+	 (when (eql (status pcs) :open)
+	   (alsa-close pcs))
+	 (alsa-open-2 (reinitialize-instance pcs
+					     :direction (case direction
+							  (:input :snd-pcm-stream-capture)
+							  (:output :snd-pcm-stream-playback))
+					     :device device
+					     :element-type element-type
+					     :buffer (foreign-alloc (alsa-element-type element-type)
+								    :count (* (cffi:foreign-type-size (alsa-element-type element-type)) buffer-size channels-count))
+					     :buffer-size (* buffer-size channels-count) ;number of samples really
+					     :channels-count channels-count
+					     :sample-rate sample-rate
+					     :pcm-format (cond ((eql element-type 'single-float) :snd-pcm-format-float-le)
+							       ((eql element-type 'double-float) :snd-pcm-format-float64-le)
+							       ((equalp element-type '(unsigned-byte 8)) :snd-pcm-format-u8-le)
+							       ((equalp element-type '(signed-byte 8)) :snd-pcm-format-s8-le)
+							       ((equalp element-type '(unsigned-byte 16)) :snd-pcm-format-u16-le)
+							       ((equalp element-type '(signed-byte 16)) :snd-pcm-format-s16-le)
+							       (t (error "Invalid base type ~A" element-type))))))
+       (snd-pcm-drop (deref (handle pcm))))
    pcs)
 
 (defmethod ref ((pcm pcm-stream) position)
