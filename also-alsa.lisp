@@ -256,11 +256,14 @@
 
 (defmethod alsa-write ((pcm pcm-stream))
   (assert (eql (direction pcm) :snd-pcm-stream-playback))
-  (let ((result (snd-pcm-writei (deref (handle pcm)) (buffer pcm) (/ (buffer-size pcm) (channels-count pcm)))))
-    (unless (= result (/ (buffer-size pcm) (channels-count pcm)))
-      (if (eql result (- +epipe+))
-	  (progn (format t "Underrun!") (snd-pcm-prepare (deref (handle pcm))))
-	  (error "ALSA error: ~A" result)))))
+  (let* ((expected (/ (buffer-size pcm) (channels-count pcm)))
+         (result (snd-pcm-writei (deref (handle pcm)) (buffer pcm) expected)))
+    (cond ((= result (- +epipe+))
+           ;; Under run, so prepare and retry
+           (snd-pcm-prepare (deref (handle pcm)))
+           (alsa-write pcm))
+          ((/= result expected)
+           (t (error "ALSA error: ~A" result))))))
 
 (defmethod alsa-read ((pcm pcm-stream))
   (assert (eql (direction pcm) :snd-pcm-stream-capture))
