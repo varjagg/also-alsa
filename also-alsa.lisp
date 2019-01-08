@@ -152,12 +152,25 @@
 
 (defun alsa-element-type (type)
   (cond ((eql type 'single-float) :float)
-	((eql type 'double-float) :double)
-	((equalp type '(unsigned-byte 8)) :uint8)
-	((equalp type '(signed-byte 8)) :int8)
-	((equalp type '(unsigned-byte 16)) :uint16)
-	((equalp type '(signed-byte 16)) :int16)
-	(t (error "Invalid base type ~A" type))))
+        ((eql type 'double-float) :double)
+        ((equalp type '(unsigned-byte 8)) :uint8)
+        ((equalp type '(signed-byte 8)) :int8)
+        ((equalp type '(unsigned-byte 16)) :uint16)
+        ((equalp type '(signed-byte 16)) :int16)
+        ((equalp type '(unsigned-byte 32)) :uint32)
+        ((equalp type '(signed-byte 32)) :int32)
+        (t (error "Invalid base type ~A" type))))
+
+(defun to-alsa-format (element-type)
+  (cond ((eql element-type 'single-float) :snd-pcm-format-float-le)
+        ((eql element-type 'double-float) :snd-pcm-format-float64-le)
+        ((equalp element-type '(unsigned-byte 8)) :snd-pcm-format-u8-le)
+        ((equalp element-type '(signed-byte 8)) :snd-pcm-format-s8-le)
+        ((equalp element-type '(unsigned-byte 16)) :snd-pcm-format-u16-le)
+        ((equalp element-type '(signed-byte 16)) :snd-pcm-format-s16-le)
+        ((equalp element-type '(unsigned-byte 32)) :snd-pcm-format-u32-le)
+        ((equalp element-type '(signed-byte 32)) :snd-pcm-format-s32-le)
+        (t (error "Invalid base type ~A" element-type))))
 
 (defun alsa-open-2 (pcs)
   (ensure-success (snd-pcm-open (handle pcs) (device pcs) (direction pcs) 0))
@@ -194,13 +207,7 @@
 			    :buffer-size (* buffer-size channels-count) ;number of samples really
 			    :channels-count channels-count
 			    :sample-rate sample-rate
-			    :pcm-format (cond ((eql element-type 'single-float) :snd-pcm-format-float-le)
-					      ((eql element-type 'double-float) :snd-pcm-format-float64-le)
-					      ((equalp element-type '(unsigned-byte 8)) :snd-pcm-format-u8-le)
-					      ((equalp element-type '(signed-byte 8)) :snd-pcm-format-s8-le)
-					      ((equalp element-type '(unsigned-byte 16)) :snd-pcm-format-u16-le)
-					      ((equalp element-type '(signed-byte 16)) :snd-pcm-format-s16-le)
-					      (t (error "Invalid base type ~A" element-type))))))
+			    :pcm-format (to-alsa-format element-type))))
     (alsa-open-2 pcs)))
 
 (defgeneric alsa-reopen (pcs device buffer-size element-type &key direction sample-rate channels-count)
@@ -228,13 +235,7 @@
 					     :buffer-size (* buffer-size channels-count) ;number of samples really
 					     :channels-count channels-count
 					     :sample-rate sample-rate
-					     :pcm-format (cond ((eql element-type 'single-float) :snd-pcm-format-float-le)
-							       ((eql element-type 'double-float) :snd-pcm-format-float64-le)
-							       ((equalp element-type '(unsigned-byte 8)) :snd-pcm-format-u8-le)
-							       ((equalp element-type '(signed-byte 8)) :snd-pcm-format-s8-le)
-							       ((equalp element-type '(unsigned-byte 16)) :snd-pcm-format-u16-le)
-							       ((equalp element-type '(signed-byte 16)) :snd-pcm-format-s16-le)
-							       (t (error "Invalid base type ~A" element-type))))))
+					     :pcm-format (to-alsa-format element-type))))
        (snd-pcm-drop (deref (handle pcm))))
    pcs)
 
