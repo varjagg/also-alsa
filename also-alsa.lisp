@@ -236,7 +236,7 @@
 					     :channels-count channels-count
 					     :sample-rate sample-rate
 					     :pcm-format (to-alsa-format element-type))))
-       (snd-pcm-drop (deref (handle pcm))))
+       (snd-pcm-drop (deref (handle pcs))))
    pcs)
 
 (defmethod ref ((pcm pcm-stream) position)
@@ -263,7 +263,7 @@
            (snd-pcm-prepare (deref (handle pcm)))
            (alsa-write pcm))
           ((/= result expected)
-           (t (error "ALSA error: ~A" result))))))
+           (error "ALSA error: ~A" result)))))
 
 (defmethod alsa-read ((pcm pcm-stream))
   (assert (eql (direction pcm) :snd-pcm-stream-capture))
