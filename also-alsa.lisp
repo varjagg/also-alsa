@@ -246,6 +246,9 @@
   #+(or)(assert (eql (element-type pcm) (type-of value)))
   (setf (mem-aref (buffer pcm) (alsa-element-type (element-type pcm)) position) value))
 
+(defmethod drain ((pcm pcm-stream))
+  (snd-pcm-drain (deref (handle pcm))))
+
 (defmethod alsa-close ((pcm pcm-stream))
   (when (eq (status pcm) :open)
     (snd-pcm-drain (deref (handle pcm)))
