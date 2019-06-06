@@ -249,6 +249,11 @@
 (defmethod drain ((pcm pcm-stream))
   (snd-pcm-drain (deref (handle pcm))))
 
+(defmethod get-delay ((pcm pcm-stream))
+  (cffi:with-foreign-object (result :long)
+    (ensure-success (snd-pcm-delay (deref (handle pcm)) result))
+    (mem-ref result :uint)))
+
 (defmethod alsa-close ((pcm pcm-stream))
   (when (eq (status pcm) :open)
     (snd-pcm-drain (deref (handle pcm)))
