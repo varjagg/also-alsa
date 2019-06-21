@@ -117,6 +117,8 @@
 
 (defcfun "snd_pcm_delay" :int (pcm :pointer) (delayp (:pointer :long)))
 
+(defcfun "snd_pcm_avail_delay" :int (pcm :pointer) (availp (:pointer :long)) (delayp (:pointer :long)))
+
 (defcfun "snd_pcm_sw_params_malloc" :int (dptr :pointer))
 
 (defcfun "snd_pcm_sw_params_current" :int (pcm :pointer) (swparams :pointer))
@@ -255,7 +257,14 @@
     (let ((error-code (snd-pcm-delay (deref (handle pcm)) result)))
       (cond ((eql error-code (- +epipe+)) (format t "Pipe busted!") 0)
 	    ((minusp error-code) (error "ALSA error: ~A" error-code))
-	  (t (mem-ref result :uint))))))
+	    (t (mem-ref result :uint))))))
+
+(defmethod get-avail-delay ((pcm pcm-stream))
+  (cffi:with-foreign-objects ((avail :long) (delay :long))
+    (let ((error-code (snd-pcm-avail-delay (deref (handle pcm)) avail delay)))
+      (cond ((eql error-code (- +epipe+)) (format t "Pipe busted!") (values 0 0))
+	    ((minusp error-code) (error "ALSA error: ~A" error-code))
+	  (t (values (mem-ref avail :uint) (mem-ref delay :uint)))))))
 
 (defmethod alsa-close ((pcm pcm-stream))
   (when (eq (status pcm) :open)
