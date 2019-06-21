@@ -250,9 +250,12 @@
   (snd-pcm-drain (deref (handle pcm))))
 
 (defmethod get-delay ((pcm pcm-stream))
+  (snd-pcm-prepare (deref (handle pcm)))
   (cffi:with-foreign-object (result :long)
-    (ensure-success (snd-pcm-delay (deref (handle pcm)) result))
-    (mem-ref result :uint)))
+    (let ((error-code (snd-pcm-delay (deref (handle pcm)) result)))
+      (cond ((eql error-code (- +epipe+)) (format t "Pipe busted!") 0)
+	    ((minusp error-code) (error "ALSA error: ~A" error-code))
+	  (t (mem-ref result :uint))))))
 
 (defmethod alsa-close ((pcm pcm-stream))
   (when (eq (status pcm) :open)
@@ -268,6 +271,7 @@
          (result (snd-pcm-writei (deref (handle pcm)) (buffer pcm) expected)))
     (cond ((= result (- +epipe+))
            ;; Under run, so prepare and retry
+	   (format t "Underrun!")
            (snd-pcm-prepare (deref (handle pcm)))
            (alsa-write pcm))
           ((/= result expected)
@@ -294,4 +298,5 @@
 				       :direction ,direction :sample-rate ,sample-rate :channels-count ,channels-count)))
      (unwind-protect
 	  (progn ,@body)
+       (also-alsa:drain ,stream)
        (also-alsa:alsa-close ,stream))))
