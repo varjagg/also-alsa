@@ -115,6 +115,8 @@
 
 (defcfun "snd_pcm_readi" snd-pcm-sframes (pcm :pointer) (buffer :pointer) (size snd-pcm-uframes))
 
+(defcfun "snd_pcm_wait" :int (pcm :pointer) (timeout :int))
+
 (defcfun "snd_pcm_delay" :int (pcm :pointer) (delayp (:pointer :long)))
 
 (defcfun "snd_pcm_avail_delay" :int (pcm :pointer) (availp (:pointer :long)) (delayp (:pointer :long)))
