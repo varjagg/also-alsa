@@ -276,6 +276,9 @@
   (setf (status pcm) :closed)
   pcm)
 
+(defmethod alsa-wait ((pcm pcm-stream) &optional (timeout -1))
+  (snd-pcm-wait (deref (handle pcm)) timeout))
+
 (defmethod alsa-write ((pcm pcm-stream))
   (assert (eql (direction pcm) :snd-pcm-stream-playback))
   (let* ((expected (/ (buffer-size pcm) (channels-count pcm)))
