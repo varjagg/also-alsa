@@ -253,6 +253,9 @@
 (defmethod drain ((pcm pcm-stream))
   (snd-pcm-drain (deref (handle pcm))))
 
+(defmethod alsa-start ((pcm pcm-stream))
+  (snd-pcm-start (deref (handle pcm))))
+
 (defmethod get-delay ((pcm pcm-stream))
   (snd-pcm-prepare (deref (handle pcm)))
   (cffi:with-foreign-object (result :long)
