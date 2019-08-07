@@ -257,14 +257,14 @@
   (snd-pcm-prepare (deref (handle pcm)))
   (cffi:with-foreign-object (result :long)
     (let ((error-code (snd-pcm-delay (deref (handle pcm)) result)))
-      (cond ((eql error-code (- +epipe+)) (format t "Pipe busted!") 0)
+      (cond ((eql error-code (- +epipe+)) (warn "Pipe busted!") 0)
 	    ((minusp error-code) (error "ALSA error: ~A" error-code))
 	    (t (mem-ref result :uint))))))
 
 (defmethod get-avail-delay ((pcm pcm-stream))
   (cffi:with-foreign-objects ((avail :long) (delay :long))
     (let ((error-code (snd-pcm-avail-delay (deref (handle pcm)) avail delay)))
-      (cond ((eql error-code (- +epipe+)) (format t "Pipe busted!") (values 0 0))
+      (cond ((eql error-code (- +epipe+)) (warn "Pipe busted!") (values 0 0))
 	    ((minusp error-code) (error "ALSA error: ~A" error-code))
 	  (t (values (mem-ref avail :uint) (mem-ref delay :uint)))))))
 
@@ -285,7 +285,7 @@
          (result (snd-pcm-writei (deref (handle pcm)) (buffer pcm) expected)))
     (cond ((= result (- +epipe+))
            ;; Under run, so prepare and retry
-	   (format t "Underrun!")
+	   (warn "Underrun!")
            (snd-pcm-prepare (deref (handle pcm)))
            (alsa-write pcm))
           ((/= result expected)
@@ -296,7 +296,7 @@
   (let ((result (snd-pcm-readi (deref (handle pcm)) (buffer pcm) (/ (buffer-size pcm) (channels-count pcm)))))
     (unless (= result (/ (buffer-size pcm) (channels-count pcm)))
       (if (eql result (- +epipe+))
-	  (progn (format t "Underrun!") (snd-pcm-prepare (deref (handle pcm))))
+	  (progn (warn "Underrun!") (snd-pcm-prepare (deref (handle pcm))))
 	  (error "ALSA error: ~A" result)))
     pcm))
 
