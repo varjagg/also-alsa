@@ -5,6 +5,8 @@
 (eval-when (:compile-toplevel)
   (defconstant +epipe+ 32))
 
+(declaim (inline alsa-element-type to-alsa-format deref ensure-success))
+
 (define-foreign-library libasound
   (:unix "libasound.so.2")
   (t (:default "libasound.so")))
@@ -155,12 +157,12 @@
    (status :accessor status :initform :initial :type (or :initial :open :closed))))
 
 (defun alsa-element-type (type)
-  (cond ((eql type 'single-float) :float)
+  (cond ((equalp type '(signed-byte 16)) :int16)
+	((eql type 'single-float) :float)
         ((eql type 'double-float) :double)
         ((equalp type '(unsigned-byte 8)) :uint8)
         ((equalp type '(signed-byte 8)) :int8)
         ((equalp type '(unsigned-byte 16)) :uint16)
-        ((equalp type '(signed-byte 16)) :int16)
         ((equalp type '(unsigned-byte 32)) :uint32)
         ((equalp type '(signed-byte 32)) :int32)
         (t (error "Invalid base type ~A" type))))
@@ -206,7 +208,8 @@
 					 (:output :snd-pcm-stream-playback))
 			    :device device
 			    :element-type element-type
-			    :buffer (foreign-alloc (alsa-element-type element-type)
+			    :buffer (cffi:make-shareable-byte-vector (* (cffi:foreign-type-size (alsa-element-type element-type)) buffer-size channels-count))
+			    #+nil(foreign-alloc (alsa-element-type element-type)
 						   :count (* (cffi:foreign-type-size (alsa-element-type element-type)) buffer-size channels-count))
 			    :buffer-size (* buffer-size channels-count) ;number of samples really
 			    :channels-count channels-count
@@ -234,7 +237,9 @@
 							  (:output :snd-pcm-stream-playback))
 					     :device device
 					     :element-type element-type
-					     :buffer (foreign-alloc (alsa-element-type element-type)
+					     :buffer (cffi:make-shareable-byte-vector
+						      (* (cffi:foreign-type-size (alsa-element-type element-type)) buffer-size channels-count))
+					     #+nil(foreign-alloc (alsa-element-type element-type)
 								    :count (* (cffi:foreign-type-size (alsa-element-type element-type)) buffer-size channels-count))
 					     :buffer-size (* buffer-size channels-count) ;number of samples really
 					     :channels-count channels-count
@@ -244,7 +249,7 @@
    pcs)
 
 (defmethod ref ((pcm pcm-stream) position)
-  (mem-aref (buffer pcm) (alsa-element-type (element-type pcm)) position))
+  (cffi:mem-aref (buffer pcm) (alsa-element-type (element-type pcm)) position))
 
 (defmethod (setf ref) (value (pcm pcm-stream) position)
   #+(or)(assert (eql (element-type pcm) (type-of value)))
@@ -274,8 +279,7 @@
 (defmethod alsa-close ((pcm pcm-stream))
   (when (eq (status pcm) :open)
     (snd-pcm-drain (deref (handle pcm)))
-    (snd-pcm-close (deref (handle pcm)))
-    (cffi:foreign-free (buffer pcm)))
+    (snd-pcm-close (deref (handle pcm))))
   (setf (status pcm) :closed)
   pcm)
 
@@ -285,7 +289,8 @@
 (defmethod alsa-write ((pcm pcm-stream))
   (assert (eql (direction pcm) :snd-pcm-stream-playback))
   (let* ((expected (/ (buffer-size pcm) (channels-count pcm)))
-         (result (snd-pcm-writei (deref (handle pcm)) (buffer pcm) expected)))
+         (result (with-pointer-to-vector-data (ptr (buffer pcm))
+		   (snd-pcm-writei (deref (handle pcm)) ptr expected))))
     (cond ((= result (- +epipe+))
            ;; Under run, so prepare and retry
 	   (warn "Underrun!")
@@ -296,7 +301,8 @@
 
 (defmethod alsa-read ((pcm pcm-stream))
   (assert (eql (direction pcm) :snd-pcm-stream-capture))
-  (let ((result (snd-pcm-readi (deref (handle pcm)) (buffer pcm) (/ (buffer-size pcm) (channels-count pcm)))))
+  (let ((result (with-pointer-to-vector-data (ptr (buffer pcm))
+		  (snd-pcm-readi (deref (handle pcm)) ptr (/ (buffer-size pcm) (channels-count pcm))))))
     (unless (= result (/ (buffer-size pcm) (channels-count pcm)))
       (if (eql result (- +epipe+))
 	  (progn (warn "Underrun!") (snd-pcm-prepare (deref (handle pcm))))
@@ -317,3 +323,8 @@
 	  (progn ,@body)
        (also-alsa:drain ,stream)
        (also-alsa:alsa-close ,stream))))
+
+(defmacro with-alsa-buffer ((buffer pcm &body body))
+  `(cffi:with-pointer-to-vector-data (,buffer (buffer pcm))
+     ,@body))
+
