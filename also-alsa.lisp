@@ -249,11 +249,10 @@
    pcs)
 
 (defmethod ref ((pcm pcm-stream) position)
-  (cffi:mem-aref (buffer pcm) (alsa-element-type (element-type pcm)) position))
+  (error "Deprecated method, use AREF on the (buffer pcm) instead"))
 
 (defmethod (setf ref) (value (pcm pcm-stream) position)
-  #+(or)(assert (eql (element-type pcm) (type-of value)))
-  (setf (mem-aref (buffer pcm) (alsa-element-type (element-type pcm)) position) value))
+  (error "Deprecated, use aref on the (buffer pcm) instead"))
 
 (defmethod drain ((pcm pcm-stream))
   (snd-pcm-drain (deref (handle pcm))))
