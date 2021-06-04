@@ -135,6 +135,8 @@
 
 (defcfun "snd_pcm_sw_params" :int (pcm :pointer) (swparams :pointer))
 
+(declaim (inline deref snd-pcm-writei snd-pcm-readi snd-pcm-avail-delay snd-pcm-start snd-pcm-wait))
+
 (defun deref (var)
   (mem-ref var :pointer))
 
