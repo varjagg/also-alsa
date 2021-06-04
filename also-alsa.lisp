@@ -5,7 +5,7 @@
 (eval-when (:compile-toplevel)
   (defconstant +epipe+ 32))
 
-(declaim (inline alsa-element-type to-alsa-format deref ensure-success))
+(declaim (inline alsa-element-type to-alsa-format ensure-success))
 
 (define-foreign-library libasound
   (:unix "libasound.so.2")
@@ -135,7 +135,8 @@
 
 (defcfun "snd_pcm_sw_params" :int (pcm :pointer) (swparams :pointer))
 
-(declaim (inline deref snd-pcm-writei snd-pcm-readi snd-pcm-avail-delay snd-pcm-start snd-pcm-wait))
+(declaim (inline deref snd-pcm-writei snd-pcm-readi snd-pcm-avail-delay
+		 snd-pcm-delay snd-pcm-drain snd-pcm-start snd-pcm-wait snd-pcm-prepare))
 
 (defun deref (var)
   (mem-ref var :pointer))
