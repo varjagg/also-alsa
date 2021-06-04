@@ -201,14 +201,21 @@
   (ensure-success (snd-pcm-sw-params (deref (handle pcs)) (deref (swparams pcs))))
   pcs)
 
-(defun alsa-open (device buffer-size element-type &key direction (sample-rate 44100) (channels-count 2))
+(defun make-alsa-buffer (&key element-type size channels)
+  (cffi:make-shareable-byte-vector (* (cffi:foreign-type-size (alsa-element-type element-type)) size channels)))
+
+(defun alsa-open (device buffer-size element-type &key direction (sample-rate 44100) (channels-count 2) buffer)
+  (when buffer
+    (assert (and (subtypep (type-of buffer) 'simple-array)
+		 (subtypep (array-element-type buffer) element-type))))
   (let ((pcs (make-instance 'pcm-stream
 			    :direction (case direction
 					 (:input :snd-pcm-stream-capture)
 					 (:output :snd-pcm-stream-playback))
 			    :device device
 			    :element-type element-type
-			    :buffer (cffi:make-shareable-byte-vector (* (cffi:foreign-type-size (alsa-element-type element-type)) buffer-size channels-count))
+			    :buffer (or buffer
+					(make-alsa-buffer :element-type element-type :size buffer-size :channels channels-count))
 			    #+nil(foreign-alloc (alsa-element-type element-type)
 						   :count (* (cffi:foreign-type-size (alsa-element-type element-type)) buffer-size channels-count))
 			    :buffer-size (* buffer-size channels-count) ;number of samples really
@@ -314,9 +321,10 @@
 	 (setf (aref result i) (ref pcm i)))
     result))
 
-(defmacro with-alsa-device ((stream device buffer-size element-type &key direction (sample-rate 44100) (channels-count 2)) &body body)
+(defmacro with-alsa-device ((stream device buffer-size element-type &key direction (sample-rate 44100) (channels-count 2) buffer) &body body)
   (assert direction)
   `(let ((,stream (also-alsa:alsa-open ,device ,buffer-size ,element-type
+				       :buffer ,buffer
 				       :direction ,direction :sample-rate ,sample-rate :channels-count ,channels-count)))
      (unwind-protect
 	  (progn ,@body)
