@@ -193,8 +193,7 @@
   (ensure-success (snd-pcm-hw-params (deref (handle pcs)) (deref (params pcs))))
 
   (cffi:with-foreign-object (period :uint)
-    (ensure-success (snd-pcm-hw-params-get-period-size (deref (params pcs)) period (cffi:null-pointer)))
-    #+nil(format t "Period size: ~D" (mem-ref period :uint)))
+    (ensure-success (snd-pcm-hw-params-get-period-size (deref (params pcs)) period (cffi:null-pointer))))
 
   (snd-pcm-hw-params-free (deref (params pcs)))
   (ensure-success (snd-pcm-prepare (deref (handle pcs))))
@@ -219,8 +218,6 @@
 			    :element-type element-type
 			    :buffer (or buffer
 					(make-alsa-buffer :element-type element-type :size buffer-size :channels channels-count))
-			    #+nil(foreign-alloc (alsa-element-type element-type)
-						   :count (* (cffi:foreign-type-size (alsa-element-type element-type)) buffer-size channels-count))
 			    :buffer-size (* buffer-size channels-count) ;number of samples really
 			    :channels-count channels-count
 			    :sample-rate sample-rate
