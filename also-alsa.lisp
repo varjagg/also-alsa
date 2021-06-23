@@ -232,7 +232,9 @@
 	   (not (and (equal device (device pcs))
 		     (= (* buffer-size channels-count) (buffer-size pcs))
 		     (equal element-type (element-type pcs))
-		     (eql direction (direction pcs))
+		     (eql direction (case (direction pcs)
+				      (:snd-pcm-stream-capture :input)
+				      (:snd-pcm-stream-playback :output)))
 		     (= sample-rate (sample-rate pcs))
 		     (= channels-count (channels-count pcs)))))
        (progn
