@@ -7,6 +7,8 @@
 
 (declaim (inline alsa-element-type to-alsa-format ensure-success))
 
+(defvar *alsa-warn* nil)
+
 (define-foreign-library libasound
   (:unix "libasound.so.2")
   (t (:default "libasound.so")))
@@ -145,6 +147,10 @@
   (unless (zerop value)
     (error "ALSA error: ~A" (snd-strerror value))))
 
+(defun alsa-warn (string)
+  (when *alsa-warn*
+    (warn string)))
+
 (defclass pcm-stream ()
   ((handle :reader handle :initform (foreign-alloc :pointer :initial-contents (list (null-pointer))))
    (device :reader device :initarg :device)
@@ -276,14 +282,15 @@
   (snd-pcm-prepare (deref (handle pcm)))
   (cffi:with-foreign-object (result :long)
     (let ((error-code (snd-pcm-delay (deref (handle pcm)) result)))
-      (cond ((eql error-code (- +epipe+)) (warn "Pipe busted!") 0)
+      (cond ((eql error-code (- +epipe+))
+	     (alsa-warn "Pipe busted!") 0)
 	    ((minusp error-code) (error "ALSA error: ~A" error-code))
 	    (t (mem-ref result :uint))))))
 
 (defmethod get-avail-delay ((pcm pcm-stream))
   (cffi:with-foreign-objects ((avail :long) (delay :long))
     (let ((error-code (snd-pcm-avail-delay (deref (handle pcm)) avail delay)))
-      (cond ((eql error-code (- +epipe+)) (warn "Pipe busted!") (values 0 0))
+      (cond ((eql error-code (- +epipe+)) (alsa-warn "Pipe busted!") (values 0 0))
 	    ((minusp error-code) (error "ALSA error: ~A" error-code))
 	  (t (values (mem-ref avail :uint) (mem-ref delay :uint)))))))
 
@@ -304,7 +311,7 @@
 		   (snd-pcm-writei (deref (handle pcm)) ptr expected))))
     (cond ((= result (- +epipe+))
            ;; Under run, so prepare and retry
-	   (warn "Underrun!")
+	   (alsa-warn "Underrun!")
            (snd-pcm-prepare (deref (handle pcm)))
            (alsa-write pcm))
           ((/= result expected)
@@ -316,7 +323,7 @@
 		  (snd-pcm-readi (deref (handle pcm)) ptr (/ (buffer-size pcm) (channels-count pcm))))))
     (unless (= result (/ (buffer-size pcm) (channels-count pcm)))
       (if (eql result (- +epipe+))
-	  (progn (warn "Underrun!") (snd-pcm-prepare (deref (handle pcm))))
+	  (progn (alsa-warn "Underrun!") (snd-pcm-prepare (deref (handle pcm))))
 	  (error "ALSA error: ~A" result)))
     pcm))
 
