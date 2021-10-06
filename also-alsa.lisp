@@ -347,3 +347,5 @@
   `(cffi:with-pointer-to-vector-data (,buffer (buffer pcm))
      ,@body))
 
+(defmethod get-state ((pcm pcm-stream))
+  (snd-pcm-state (handle pcm)))
