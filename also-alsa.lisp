@@ -348,4 +348,4 @@
      ,@body))
 
 (defmethod get-state ((pcm pcm-stream))
-  (snd-pcm-state (handle pcm)))
+  (snd-pcm-state (deref (handle pcm))))
