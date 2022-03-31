@@ -167,7 +167,7 @@
 
 (defun alsa-element-type (type)
   (cond ((equalp type '(signed-byte 16)) :int16)
-	((eql type 'single-float) :float)
+        ((eql type 'single-float) :float)
         ((eql type 'double-float) :double)
         ((equalp type '(unsigned-byte 8)) :uint8)
         ((equalp type '(signed-byte 8)) :int8)
@@ -215,7 +215,7 @@
 (defun alsa-open (device buffer-size element-type &key direction (sample-rate 44100) (channels-count 2) buffer)
   (when buffer
     (assert (and (subtypep (type-of buffer) 'simple-array)
-		 (subtypep (array-element-type buffer) element-type))))
+                 (subtypep (array-element-type buffer) element-type))))
   (let ((pcs (make-instance 'pcm-stream
 			    :direction (case direction
 					 (:input :snd-pcm-stream-capture)
@@ -223,7 +223,7 @@
 			    :device device
 			    :element-type element-type
 			    :buffer (or buffer
-					(make-alsa-buffer :element-type element-type :size buffer-size :channels channels-count))
+                            (make-alsa-buffer :element-type element-type :size buffer-size :channels channels-count))
 			    :buffer-size (* buffer-size channels-count) ;number of samples really
 			    :channels-count channels-count
 			    :sample-rate sample-rate
@@ -311,7 +311,7 @@
 		   (snd-pcm-writei (deref (handle pcm)) ptr expected))))
     (cond ((= result (- +epipe+))
            ;; Under run, so prepare and retry
-	   (alsa-warn "Underrun!")
+           (alsa-warn "Underrun!")
            (snd-pcm-prepare (deref (handle pcm)))
            (alsa-write pcm))
           ((/= result expected)
@@ -323,8 +323,8 @@
 		  (snd-pcm-readi (deref (handle pcm)) ptr (/ (buffer-size pcm) (channels-count pcm))))))
     (unless (= result (/ (buffer-size pcm) (channels-count pcm)))
       (if (eql result (- +epipe+))
-	  (progn (alsa-warn "Underrun!") (snd-pcm-prepare (deref (handle pcm))))
-	  (error "ALSA error: ~A" result)))
+          (progn (alsa-warn "Underrun!") (snd-pcm-prepare (deref (handle pcm))))
+          (error "ALSA error: ~A" result)))
     pcm))
 
 (defmethod contents-to-lisp ((pcm pcm-stream))
