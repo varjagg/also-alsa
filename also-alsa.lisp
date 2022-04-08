@@ -344,7 +344,7 @@
        (also-alsa:alsa-close ,stream))))
 
 (defmacro with-alsa-buffer ((buffer pcm &body body))
-  `(cffi:with-pointer-to-vector-data (,buffer (buffer pcm))
+  `(cffi:with-pointer-to-vector-data (,buffer (buffer ,pcm))
      ,@body))
 
 (defmethod get-state ((pcm pcm-stream))
