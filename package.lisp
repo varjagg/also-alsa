@@ -10,5 +10,5 @@
 	   #:open-mixer #:close-mixer #:access-mixer-element
 	   #:set-mixer-element-playback-volume #:set-mixer-element-playback-db
 	   #:set-mixer-element-capture-volume #:set-mixer-element-capture-db
-	   #:set-master-volume))
+	   #:set-mixer-element-volume))
 
