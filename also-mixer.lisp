@@ -92,6 +92,16 @@
 	    (warn "Supplied dB value ~d is out of range [~d , ~d]"
 		  new-db (mem-ref min :long) (mem-ref max :long)))))))
 
+(defun get-mixer-element-playback-db (selem)
+  (with-foreign-objects ((value :long))
+    (ensure-success (snd-mixer-selem-get-playback-db selem value))
+    (/ value 100)))
+
+(defun get-mixer-element-capture-db (selem)
+  (with-foreign-objects ((value :long))
+    (ensure-success (snd-mixer-selem-get-capture-db selem value))
+    (/ value 100)))
+
 (defun set-mixer-element-volume (volume &key (element "Master") (direction :playback))
   (let ((handle (open-mixer)))
     (unwind-protect
