@@ -18,9 +18,13 @@
 
 (defcfun "snd_mixer_selem_get_playback_dB_range" :int (selem :pointer) (min :pointer) (max :pointer))
 
+(defcfun "snd_mixer_selem_get_playback_dB" :int (selem :pointer) (value :pointer))
+
 (defcfun "snd_mixer_selem_get_capture_volume_range" :int (selem :pointer) (min :pointer) (max :pointer))
 
 (defcfun "snd_mixer_selem_get_capture_dB_range" :int (selem :pointer) (min :pointer) (max :pointer))
+
+(defcfun "snd_mixer_selem_get_capture_dB" :int (selem :pointer) (value :pointer))
 
 (defcfun "snd_mixer_selem_set_playback_volume_all" :int (selem :pointer) (volume :long))
 
