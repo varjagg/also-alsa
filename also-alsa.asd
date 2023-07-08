@@ -5,5 +5,6 @@
   :depends-on (#:cffi)
   :serial t
   :components ((:file "package")
-               (:file "also-alsa")))
+               (:file "also-alsa")
+	       (:file "also-mixer")))
 
