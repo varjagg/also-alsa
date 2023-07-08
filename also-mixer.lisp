@@ -36,6 +36,8 @@
 
 (defcfun "snd_mixer_close" :int (handle :pointer))
 
+(defcfun "snd_mixer_wait" :int (handle :pointer) (timeout :int))
+
 (defcstruct snd-mixer-selem-id
   (name :char :count 60)
   (index :uint))
