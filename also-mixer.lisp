@@ -1,5 +1,19 @@
 (in-package :also-alsa)
 
+(defcenum snd-mixer-selem-channel-id
+  (:snd-mixer-schn-unknown -1)
+  (:snd-mixer-schn-front-left 0)
+  :snd-mixer-schn-front-right
+  :snd-mixer-schn-rear-left
+  :snd-mixer-schn-rear-right
+  :snd-mixer-schn-front-center
+  :snd-mixer-schn-woofer
+  :snd-mixer-schn-side-left
+  :snd-mixer-schn-side-right
+  :snd-mixer-schn-rear-center
+  (:snd-mixer-schn-last 31)
+  (:snd-mixer-schn-mono 0))
+
 (defcfun "snd_mixer_open" :int (handle :pointer) (mode :int))
 
 (defcfun "snd_mixer_attach" :int (handle :pointer) (card :string))
