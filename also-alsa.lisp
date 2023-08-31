@@ -13,7 +13,12 @@
   (:unix "libasound.so.2")
   (t (:default "libasound.so")))
 
-(use-foreign-library libasound)
+(defun load-alsa ()
+  (use-foreign-library libasound))
+
+;;; LW FLI can give us grief during cross builds
+;;; We better invoke LOAD-ALSA as needed
+#-lispworks(use-foreign-library libasound)
 
 (defcenum snd-pcm-class
   (:snd-pcm-class-generic 0)
