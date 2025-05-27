@@ -354,3 +354,13 @@
 
 (defmethod get-state ((pcm pcm-stream))
   (snd-pcm-state (deref (handle pcm))))
+
+(defmethod alsa-get-start-threshold ((pcm pcm-stream) value)
+   (cffi:with-foreign-objects ((pval :long))
+     (snd_pcm_sw_params_get_start_threshold (deref (handle pcm)) (deref (swparams pcm))
+					    pval)
+     (mem-ref pval :long)))
+
+(defmethod alsa-set-start-threshold ((pcm pcm-stream))
+  (snd_pcm_sw_params_set_start_threshold (deref (handle pcm)) (deref (swparams pcm))
+					 value))
