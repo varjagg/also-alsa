@@ -362,5 +362,6 @@
      (mem-ref pval :long)))
 
 (defmethod alsa-set-start-threshold ((pcm pcm-stream) value)
-  (snd_pcm_sw_params_set_start_threshold (deref (handle pcm)) (deref (swparams pcm))
-					 value))
+  (ensure-success
+   (snd_pcm_sw_params_set_start_threshold (deref (handle pcm)) (deref (swparams pcm))
+					  value)))
