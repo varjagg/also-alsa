@@ -172,7 +172,7 @@
 
 (defun alsa-element-type (type)
   (cond ((equalp type '(signed-byte 16)) :int16)
-	((eql type 'single-float) :float)
+        ((eql type 'single-float) :float)
         ((eql type 'double-float) :double)
         ((equalp type '(unsigned-byte 8)) :uint8)
         ((equalp type '(signed-byte 8)) :int8)
@@ -215,12 +215,14 @@
   pcs)
 
 (defun make-alsa-buffer (&key element-type size channels)
-  (cffi:make-shareable-byte-vector (* (cffi:foreign-type-size (alsa-element-type element-type)) size channels)))
+  (if (equalp element-type '(unsigned-byte 8))
+      (cffi:make-shareable-byte-vector (* size channels))
+      (make-array (* size channels) :element-type element-type)))
 
 (defun alsa-open (device buffer-size element-type &key direction (sample-rate 44100) (channels-count 2) buffer)
   (when buffer
     (assert (and (subtypep (type-of buffer) 'simple-array)
-		 (subtypep (array-element-type buffer) element-type))))
+                 (subtypep (array-element-type buffer) element-type))))
   (let ((pcs (make-instance 'pcm-stream
 			    :direction (case direction
 					 (:input :snd-pcm-stream-capture)
@@ -228,7 +230,7 @@
 			    :device device
 			    :element-type element-type
 			    :buffer (or buffer
-					(make-alsa-buffer :element-type element-type :size buffer-size :channels channels-count))
+                            (make-alsa-buffer :element-type element-type :size buffer-size :channels channels-count))
 			    :buffer-size (* buffer-size channels-count) ;number of samples really
 			    :channels-count channels-count
 			    :sample-rate sample-rate
@@ -239,33 +241,35 @@
   (:documentation "Reopens the stream. If all parameters are the same, just keeps the exiting one."))
 
 (defmethod alsa-reopen ((pcs pcm-stream) device buffer-size element-type &key direction (sample-rate 44100) (channels-count 2))
-   (if (or (eql (status pcs) :initial)
-	   (not (and (equal device (device pcs))
-		     (= (* buffer-size channels-count) (buffer-size pcs))
-		     (equal element-type (element-type pcs))
-		     (eql direction (case (direction pcs)
-				      (:snd-pcm-stream-capture :input)
-				      (:snd-pcm-stream-playback :output)))
-		     (= sample-rate (sample-rate pcs))
-		     (= channels-count (channels-count pcs)))))
-       (progn
-	 (when (eql (status pcs) :open)
-	   (alsa-close pcs))
-	 (alsa-open-2 (reinitialize-instance pcs
-					     :direction (case direction
-							  (:input :snd-pcm-stream-capture)
-							  (:output :snd-pcm-stream-playback))
-					     :device device
-					     :element-type element-type
-					     :buffer (cffi:make-shareable-byte-vector
-						      (* (cffi:foreign-type-size (alsa-element-type element-type)) buffer-size channels-count))
-					     #+nil(foreign-alloc (alsa-element-type element-type)
-								    :count (* (cffi:foreign-type-size (alsa-element-type element-type)) buffer-size channels-count))
-					     :buffer-size (* buffer-size channels-count) ;number of samples really
-					     :channels-count channels-count
-					     :sample-rate sample-rate
-					     :pcm-format (to-alsa-format element-type))))
-       (snd-pcm-drop (deref (handle pcs))))
+  (if (or (eql (status pcs) :initial)
+          (not (and (equal device (device pcs))
+                    (= (* buffer-size channels-count) (buffer-size pcs))
+                    (equal element-type (element-type pcs))
+                    (eql direction (case (direction pcs)
+                                     (:snd-pcm-stream-capture :input)
+                                     (:snd-pcm-stream-playback :output)))
+                    (= sample-rate (sample-rate pcs))
+                    (= channels-count (channels-count pcs)))))
+      (progn
+        (when (eql (status pcs) :open)
+          (alsa-close pcs))
+        (alsa-open-2 (reinitialize-instance
+                      pcs
+                      :direction (case direction
+                                   (:input :snd-pcm-stream-capture)
+                                   (:output :snd-pcm-stream-playback))
+                      :device device
+                      :element-type element-type
+                      :buffer (make-alsa-buffer :element-type element-type
+                                                :size buffer-size
+                                                :channels channels-count)
+                      #+nil(foreign-alloc (alsa-element-type element-type)
+                                          :count (* (cffi:foreign-type-size (alsa-element-type element-type)) buffer-size channels-count))
+                      :buffer-size (* buffer-size channels-count) ;number of samples really
+                      :channels-count channels-count
+                      :sample-rate sample-rate
+                      :pcm-format (to-alsa-format element-type))))
+      (snd-pcm-drop (deref (handle pcs))))
    pcs)
 
 (defmethod ref ((pcm pcm-stream) position)
@@ -312,11 +316,18 @@
 (defmethod alsa-write ((pcm pcm-stream))
   (assert (eql (direction pcm) :snd-pcm-stream-playback))
   (let* ((expected (/ (buffer-size pcm) (channels-count pcm)))
-         (result (with-pointer-to-vector-data (ptr (buffer pcm))
-		   (snd-pcm-writei (deref (handle pcm)) ptr expected))))
+         (element-type (array-element-type (buffer pcm)))
+         (result (if (equalp element-type '(unsigned-byte 8))
+                     (with-pointer-to-vector-data (ptr (buffer pcm))
+                       (snd-pcm-writei (deref (handle pcm)) ptr expected))
+                     (with-foreign-array
+                         (ptr (buffer pcm)
+                              (cffi::ensure-parsed-base-type
+                               (list :array (alsa-element-type element-type) expected)))
+                       (snd-pcm-writei (deref (handle pcm)) ptr expected)))))
     (cond ((= result (- +epipe+))
            ;; Under run, so prepare and retry
-	   (alsa-warn "Underrun!")
+           (alsa-warn "Underrun!")
            (snd-pcm-prepare (deref (handle pcm)))
            (alsa-write pcm))
           ((/= result expected)
@@ -324,19 +335,24 @@
 
 (defmethod alsa-read ((pcm pcm-stream))
   (assert (eql (direction pcm) :snd-pcm-stream-capture))
-  (let ((result (with-pointer-to-vector-data (ptr (buffer pcm))
-		  (snd-pcm-readi (deref (handle pcm)) ptr (/ (buffer-size pcm) (channels-count pcm))))))
+  (let* ((expected (/ (buffer-size pcm) (channels-count pcm)))
+         (element-type (array-element-type (buffer pcm)))
+         (result (if (equalp element-type '(unsigned-byte 8))
+                     (with-pointer-to-vector-data (ptr (buffer pcm))
+                       (snd-pcm-readi (deref (handle pcm)) ptr expected))
+                     (with-foreign-array
+                         (ptr (buffer pcm)
+                              (cffi::ensure-parsed-base-type
+                               (list :array (alsa-element-type element-type) expected)))
+                       (prog1
+                           (snd-pcm-readi (deref (handle pcm)) ptr expected)
+                         (setf (slot-value pcm 'buffer)
+                               (foreign-array-to-lisp ptr cffi-type :element-type element-type)))))))
     (unless (= result (/ (buffer-size pcm) (channels-count pcm)))
       (if (eql result (- +epipe+))
-	  (progn (alsa-warn "Underrun!") (snd-pcm-prepare (deref (handle pcm))))
-	  (error "ALSA error: ~A" result)))
+          (progn (alsa-warn "Underrun!") (snd-pcm-prepare (deref (handle pcm))))
+          (error "ALSA error: ~A" result)))
     pcm))
-
-(defmethod contents-to-lisp ((pcm pcm-stream))
-  (let ((result (make-array (buffer-size pcm) :element-type (element-type pcm))))
-    (loop for i from 0 below (buffer-size pcm) do
-	 (setf (aref result i) (ref pcm i)))
-    result))
 
 (defmacro with-alsa-device ((stream device buffer-size element-type &key direction (sample-rate 44100) (channels-count 2) buffer) &body body)
   (assert direction)
