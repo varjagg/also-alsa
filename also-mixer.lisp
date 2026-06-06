@@ -76,7 +76,10 @@
 	   (progn
 	     (snd-mixer-selem-id-set-index sid 0)
 	     (snd-mixer-selem-id-set-name sid selem-name)
-	     (snd-mixer-find-selem (deref handle) sid))
+	     (let ((selem (snd-mixer-find-selem (deref handle) sid)))
+	       (when (null-pointer-p selem)
+		 (error "ALSA mixer element ~S not found" selem-name))
+	       selem))
 	(snd-mixer-selem-id-free sid)))))
 
 (defun set-mixer-element-playback-volume (selem volume)
