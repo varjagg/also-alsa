@@ -22,6 +22,10 @@
 
 (defcfun "snd_mixer_load" :int (handle :pointer))
 
+(defcfun "snd_mixer_selem_id_malloc" :int (ptr :pointer))
+
+(defcfun "snd_mixer_selem_id_free" :void (obj :pointer))
+
 (defcfun "snd_mixer_selem_id_set_index" :void (sid :pointer) (val :uint))
 
 (defcfun "snd_mixer_selem_id_set_name" :void (sid :pointer) (val :string))
@@ -52,10 +56,6 @@
 
 (defcfun "snd_mixer_wait" :int (handle :pointer) (timeout :int))
 
-(defcstruct snd-mixer-selem-id
-  (name :char :count 60)
-  (index :uint))
-
 (defun open-mixer (&optional (card "default"))
   (let ((handle (foreign-alloc :pointer :initial-contents (list (null-pointer)))))
     (ensure-success (snd-mixer-open handle 0))
@@ -69,10 +69,15 @@
   (foreign-free handle))
 
 (defun access-mixer-element (handle selem-name)
-  (with-foreign-objects ((sid '(:struct snd-mixer-selem-id)))
-    (snd-mixer-selem-id-set-index sid 0)
-    (snd-mixer-selem-id-set-name sid selem-name)
-    (snd-mixer-find-selem (deref handle) sid)))
+  (with-foreign-object (sid-ptr :pointer)
+    (ensure-success (snd-mixer-selem-id-malloc sid-ptr))
+    (let ((sid (mem-ref sid-ptr :pointer)))
+      (unwind-protect
+	   (progn
+	     (snd-mixer-selem-id-set-index sid 0)
+	     (snd-mixer-selem-id-set-name sid selem-name)
+	     (snd-mixer-find-selem (deref handle) sid))
+	(snd-mixer-selem-id-free sid)))))
 
 (defun set-mixer-element-playback-volume (selem volume)
   (with-foreign-objects ((min :long)
