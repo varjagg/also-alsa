@@ -102,7 +102,7 @@
 
 (defcfun "snd_pcm_hw_params_set_channels" :int (pcm :pointer) (params :pointer) (val :int))
 
-(defcfun "snd_pcm_hw_params_get_period_size" :int (pcm :pointer) (valp (:pointer :ulong)) (dir :pointer))
+(defcfun "snd_pcm_hw_params_get_period_size" :int (params :pointer) (valp (:pointer snd-pcm-uframes)) (dir :pointer))
 
 (defcfun "snd_pcm_hw_params" :int (pcm :pointer) (params :pointer))
 
@@ -126,19 +126,19 @@
 
 (defcfun "snd_pcm_wait" :int (pcm :pointer) (timeout :int))
 
-(defcfun "snd_pcm_delay" :int (pcm :pointer) (delayp (:pointer :long)))
+(defcfun "snd_pcm_delay" :int (pcm :pointer) (delayp (:pointer snd-pcm-sframes)))
 
-(defcfun "snd_pcm_avail_delay" :int (pcm :pointer) (availp (:pointer :long)) (delayp (:pointer :long)))
+(defcfun "snd_pcm_avail_delay" :int (pcm :pointer) (availp (:pointer snd-pcm-sframes)) (delayp (:pointer snd-pcm-sframes)))
 
 (defcfun "snd_pcm_sw_params_malloc" :int (dptr :pointer))
 
 (defcfun "snd_pcm_sw_params_current" :int (pcm :pointer) (swparams :pointer))
 
-(defcfun "snd_pcm_sw_params_get_start_threshold" :int (pcm :pointer) (swparams :pointer) (pval (:pointer :ulong)))
+(defcfun "snd_pcm_sw_params_get_start_threshold" :int (swparams :pointer) (pval (:pointer snd-pcm-uframes)))
 
-(defcfun "snd_pcm_sw_params_set_start_threshold" :int (pcm :pointer) (swparams :pointer) (val :ulong))
+(defcfun "snd_pcm_sw_params_set_start_threshold" :int (pcm :pointer) (swparams :pointer) (val snd-pcm-uframes))
 
-(defcfun "snd_pcm_sw_params_set_avail_min" :int (pcm :pointer) (swparams :pointer) (val :ulong))
+(defcfun "snd_pcm_sw_params_set_avail_min" :int (pcm :pointer) (swparams :pointer) (val snd-pcm-uframes))
 
 (defcfun "snd_pcm_sw_params" :int (pcm :pointer) (swparams :pointer))
 
@@ -203,7 +203,7 @@
   (ensure-success (snd-pcm-hw-params-set-channels (deref (handle pcs)) (deref (params pcs)) (channels-count pcs)))
   (ensure-success (snd-pcm-hw-params (deref (handle pcs)) (deref (params pcs))))
 
-  (cffi:with-foreign-object (period :uint)
+  (cffi:with-foreign-object (period 'snd-pcm-uframes)
     (ensure-success (snd-pcm-hw-params-get-period-size (deref (params pcs)) period (cffi:null-pointer))))
 
   (snd-pcm-hw-params-free (deref (params pcs)))
@@ -285,19 +285,20 @@
 
 (defmethod get-delay ((pcm pcm-stream))
   (snd-pcm-prepare (deref (handle pcm)))
-  (cffi:with-foreign-object (result :long)
+  (cffi:with-foreign-object (result 'snd-pcm-sframes)
     (let ((error-code (snd-pcm-delay (deref (handle pcm)) result)))
       (cond ((eql error-code (- +epipe+))
 	     (alsa-warn "Pipe busted!") 0)
 	    ((minusp error-code) (error "ALSA error: ~A" error-code))
-	    (t (mem-ref result :uint))))))
+	    (t (mem-ref result 'snd-pcm-sframes))))))
 
 (defmethod get-avail-delay ((pcm pcm-stream))
-  (cffi:with-foreign-objects ((avail :long) (delay :long))
+  (cffi:with-foreign-objects ((avail 'snd-pcm-sframes) (delay 'snd-pcm-sframes))
     (let ((error-code (snd-pcm-avail-delay (deref (handle pcm)) avail delay)))
       (cond ((eql error-code (- +epipe+)) (alsa-warn "Pipe busted!") (values 0 0))
 	    ((minusp error-code) (error "ALSA error: ~A" error-code))
-	  (t (values (mem-ref avail :uint) (mem-ref delay :uint)))))))
+	  (t (values (mem-ref avail 'snd-pcm-sframes)
+		     (mem-ref delay 'snd-pcm-sframes)))))))
 
 (defmethod alsa-close ((pcm pcm-stream))
   (when (eq (status pcm) :open)
@@ -356,11 +357,10 @@
   (snd-pcm-state (deref (handle pcm))))
 
 (defmethod alsa-get-start-threshold ((pcm pcm-stream))
-   (cffi:with-foreign-objects ((pval :long))
+   (cffi:with-foreign-objects ((pval 'snd-pcm-uframes))
      (ensure-success
-      (snd-pcm-sw-params-get-start-threshold (deref (handle pcm)) (deref (swparams pcm))
-					     pval))
-     (mem-ref pval :long)))
+      (snd-pcm-sw-params-get-start-threshold (deref (swparams pcm)) pval))
+     (mem-ref pval 'snd-pcm-uframes)))
 
 (defmethod alsa-set-start-threshold ((pcm pcm-stream) value)
   (ensure-success
