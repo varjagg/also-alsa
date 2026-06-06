@@ -334,9 +334,11 @@
     pcm))
 
 (defmethod contents-to-lisp ((pcm pcm-stream))
-  (let ((result (make-array (buffer-size pcm) :element-type (element-type pcm))))
-    (loop for i from 0 below (buffer-size pcm) do
-	 (setf (aref result i) (ref pcm i)))
+  (let ((result (make-array (buffer-size pcm) :element-type (element-type pcm)))
+	(alsa-type (alsa-element-type (element-type pcm))))
+    (with-pointer-to-vector-data (ptr (buffer pcm))
+      (loop for i from 0 below (buffer-size pcm) do
+	   (setf (aref result i) (mem-aref ptr alsa-type i))))
     result))
 
 (defmacro with-alsa-device ((stream device buffer-size element-type &key direction (sample-rate 44100) (channels-count 2) buffer) &body body)
