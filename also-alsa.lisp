@@ -106,7 +106,7 @@
 
 (defcfun "snd_pcm_hw_params" :int (pcm :pointer) (params :pointer))
 
-(defcfun "snd_pcm_hw_params_free" :int (params :pointer))
+(defcfun "snd_pcm_hw_params_free" :void (params :pointer))
 
 (defcfun "snd_strerror" :string (val :int))
 
@@ -132,6 +132,8 @@
 
 (defcfun "snd_pcm_sw_params_malloc" :int (dptr :pointer))
 
+(defcfun "snd_pcm_sw_params_free" :void (obj :pointer))
+
 (defcfun "snd_pcm_sw_params_current" :int (pcm :pointer) (swparams :pointer))
 
 (defcfun "snd_pcm_sw_params_get_start_threshold" :int (swparams :pointer) (pval (:pointer snd-pcm-uframes)))
@@ -156,11 +158,62 @@
   (when *alsa-warn*
     (warn string)))
 
+(defun make-pointer-cell ()
+  (foreign-alloc :pointer :initial-contents (list (null-pointer))))
+
+(defun ensure-pointer-cell (object slot-name)
+  (unless (and (slot-boundp object slot-name)
+	       (slot-value object slot-name))
+    (setf (slot-value object slot-name) (make-pointer-cell))))
+
+(defun ensure-pointer-cells (pcm)
+  (ensure-pointer-cell pcm 'handle)
+  (ensure-pointer-cell pcm 'params)
+  (ensure-pointer-cell pcm 'swparams))
+
+(defun free-pointer-target (cell free-function)
+  (when cell
+    (let ((target (deref cell)))
+      (unless (null-pointer-p target)
+	(funcall free-function target)
+	(setf (mem-ref cell :pointer) (null-pointer))))))
+
+(defun free-pointer-cell (object slot-name)
+  (when (and (slot-boundp object slot-name)
+	     (slot-value object slot-name))
+    (foreign-free (slot-value object slot-name))
+    (setf (slot-value object slot-name) nil)))
+
+(defun free-pcm-params (pcm)
+  (free-pointer-target (and (slot-boundp pcm 'params) (slot-value pcm 'params))
+		       #'snd-pcm-hw-params-free)
+  (free-pointer-target (and (slot-boundp pcm 'swparams) (slot-value pcm 'swparams))
+		       #'snd-pcm-sw-params-free))
+
+(defun free-pcm-pointer-cells (pcm)
+  (free-pointer-cell pcm 'handle)
+  (free-pointer-cell pcm 'params)
+  (free-pointer-cell pcm 'swparams))
+
+(defun close-pcm-handle (pcm)
+  (let ((cell (and (slot-boundp pcm 'handle) (slot-value pcm 'handle))))
+    (when cell
+      (let ((handle (deref cell)))
+	(unless (null-pointer-p handle)
+	  (snd-pcm-close handle)
+	  (setf (mem-ref cell :pointer) (null-pointer)))))))
+
+(defun cleanup-pcm-open (pcm)
+  (ignore-errors (free-pcm-params pcm))
+  (ignore-errors (close-pcm-handle pcm))
+  (setf (slot-value pcm 'status) :closed)
+  (free-pcm-pointer-cells pcm))
+
 (defclass pcm-stream ()
-  ((handle :reader handle :initform (foreign-alloc :pointer :initial-contents (list (null-pointer))))
+  ((handle :reader handle :initform (make-pointer-cell))
    (device :reader device :initarg :device)
-   (params :reader params :initform (foreign-alloc :pointer :initial-contents (list (null-pointer))))
-   (swparams :reader swparams :initform (foreign-alloc :pointer :initial-contents (list (null-pointer))))
+   (params :reader params :initform (make-pointer-cell))
+   (swparams :reader swparams :initform (make-pointer-cell))
    (pcm-format :reader pcm-format :initarg :pcm-format :initform :snd-pcm-format-s16-le)
    (buffer :reader buffer :initarg :buffer)
    (buffer-size :reader buffer-size :initarg :buffer-size)
@@ -193,26 +246,32 @@
         (t (error "Invalid base type ~A" element-type))))
 
 (defun alsa-open-2 (pcs)
-  (ensure-success (snd-pcm-open (handle pcs) (device pcs) (direction pcs) 0))
-  (setf (status pcs) :open)
-  (ensure-success (snd-pcm-hw-params-malloc (params pcs)))
-  (ensure-success (snd-pcm-hw-params-any (deref (handle pcs)) (deref (params pcs))))
-  (ensure-success (snd-pcm-hw-params-set-access (deref (handle pcs)) (deref (params pcs)) :snd-pcm-access-rw-interleaved))
-  (ensure-success (snd-pcm-hw-params-set-format (deref (handle pcs)) (deref (params pcs)) (pcm-format pcs)))
-  (ensure-success (snd-pcm-hw-params-set-rate (deref (handle pcs)) (deref (params pcs)) (sample-rate pcs) 0))
-  (ensure-success (snd-pcm-hw-params-set-channels (deref (handle pcs)) (deref (params pcs)) (channels-count pcs)))
-  (ensure-success (snd-pcm-hw-params (deref (handle pcs)) (deref (params pcs))))
+  (ensure-pointer-cells pcs)
+  (handler-case
+      (progn
+	(ensure-success (snd-pcm-open (handle pcs) (device pcs) (direction pcs) 0))
+	(setf (status pcs) :open)
+	(ensure-success (snd-pcm-hw-params-malloc (params pcs)))
+	(ensure-success (snd-pcm-hw-params-any (deref (handle pcs)) (deref (params pcs))))
+	(ensure-success (snd-pcm-hw-params-set-access (deref (handle pcs)) (deref (params pcs)) :snd-pcm-access-rw-interleaved))
+	(ensure-success (snd-pcm-hw-params-set-format (deref (handle pcs)) (deref (params pcs)) (pcm-format pcs)))
+	(ensure-success (snd-pcm-hw-params-set-rate (deref (handle pcs)) (deref (params pcs)) (sample-rate pcs) 0))
+	(ensure-success (snd-pcm-hw-params-set-channels (deref (handle pcs)) (deref (params pcs)) (channels-count pcs)))
+	(ensure-success (snd-pcm-hw-params (deref (handle pcs)) (deref (params pcs))))
 
-  (cffi:with-foreign-object (period 'snd-pcm-uframes)
-    (ensure-success (snd-pcm-hw-params-get-period-size (deref (params pcs)) period (cffi:null-pointer))))
+	(cffi:with-foreign-object (period 'snd-pcm-uframes)
+	  (ensure-success (snd-pcm-hw-params-get-period-size (deref (params pcs)) period (cffi:null-pointer))))
 
-  (snd-pcm-hw-params-free (deref (params pcs)))
-  (ensure-success (snd-pcm-prepare (deref (handle pcs))))
+	(free-pointer-target (params pcs) #'snd-pcm-hw-params-free)
+	(ensure-success (snd-pcm-prepare (deref (handle pcs))))
     
-  (ensure-success (snd-pcm-sw-params-malloc (swparams pcs)))
-  (ensure-success (snd-pcm-sw-params-current (deref (handle pcs)) (deref (swparams pcs))))
-  (ensure-success (snd-pcm-sw-params (deref (handle pcs)) (deref (swparams pcs))))
-  pcs)
+	(ensure-success (snd-pcm-sw-params-malloc (swparams pcs)))
+	(ensure-success (snd-pcm-sw-params-current (deref (handle pcs)) (deref (swparams pcs))))
+	(ensure-success (snd-pcm-sw-params (deref (handle pcs)) (deref (swparams pcs))))
+	pcs)
+    (error (condition)
+      (cleanup-pcm-open pcs)
+      (error condition))))
 
 (defun make-alsa-buffer (&key element-type size channels)
   (cffi:make-shareable-byte-vector (* (cffi:foreign-type-size (alsa-element-type element-type)) size channels)))
@@ -242,7 +301,7 @@
   (:documentation "Reopens the stream. If all parameters are the same, just keeps the exiting one."))
 
 (defmethod alsa-reopen ((pcs pcm-stream) device buffer-size element-type &key direction (sample-rate 44100) (channels-count 2))
-   (if (or (eql (status pcs) :initial)
+   (if (or (not (eql (status pcs) :open))
 	   (not (and (equal device (device pcs))
 		     (= (* buffer-size channels-count) (buffer-size pcs))
 		     (equal element-type (element-type pcs))
@@ -310,8 +369,10 @@
     (let ((drain-result (snd-pcm-drain (deref (handle pcm)))))
       (ensure-success (snd-pcm-close (deref (handle pcm))))
       (setf (status pcm) :closed)
+      (free-pcm-params pcm)
       (ensure-success drain-result)))
   (setf (status pcm) :closed)
+  (free-pcm-pointer-cells pcm)
   pcm)
 
 (defmethod alsa-wait ((pcm pcm-stream) &optional (timeout -1))
