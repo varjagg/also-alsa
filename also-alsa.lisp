@@ -268,7 +268,7 @@
 					     :channels-count channels-count
 					     :sample-rate sample-rate
 					     :pcm-format (to-alsa-format element-type))))
-       (snd-pcm-drop (deref (handle pcs))))
+       (ensure-success (snd-pcm-drop (deref (handle pcs)))))
    pcs)
 
 (defmethod ref ((pcm pcm-stream) position)
@@ -278,13 +278,16 @@
   (error "Deprecated, use aref on the (buffer pcm) instead"))
 
 (defmethod drain ((pcm pcm-stream))
-  (snd-pcm-drain (deref (handle pcm))))
+  (ensure-success (snd-pcm-drain (deref (handle pcm))))
+  pcm)
 
 (defmethod alsa-start ((pcm pcm-stream))
-  (snd-pcm-start (deref (handle pcm))))
+  (ensure-success (snd-pcm-start (deref (handle pcm))))
+  pcm)
 
 (defmethod alsa-resume ((pcm pcm-stream))
-  (snd-pcm-prepare (deref (handle pcm))))
+  (ensure-success (snd-pcm-prepare (deref (handle pcm))))
+  pcm)
 
 (defmethod get-delay ((pcm pcm-stream))
   (snd-pcm-prepare (deref (handle pcm)))
@@ -305,8 +308,10 @@
 
 (defmethod alsa-close ((pcm pcm-stream))
   (when (eq (status pcm) :open)
-    (snd-pcm-drain (deref (handle pcm)))
-    (snd-pcm-close (deref (handle pcm))))
+    (let ((drain-result (snd-pcm-drain (deref (handle pcm)))))
+      (ensure-success (snd-pcm-close (deref (handle pcm))))
+      (setf (status pcm) :closed)
+      (ensure-success drain-result)))
   (setf (status pcm) :closed)
   pcm)
 
@@ -351,7 +356,6 @@
 				       :direction ,direction :sample-rate ,sample-rate :channels-count ,channels-count)))
      (unwind-protect
 	  (progn ,@body)
-       (also-alsa:drain ,stream)
        (also-alsa:alsa-close ,stream))))
 
 (defmacro with-alsa-buffer ((buffer pcm) &body body)
