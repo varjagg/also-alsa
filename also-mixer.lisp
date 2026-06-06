@@ -72,8 +72,9 @@
 	(error condition)))))
 
 (defun close-mixer (handle)
-  (ensure-success (snd-mixer-close (deref handle)))
-  (foreign-free handle))
+  (unwind-protect
+       (ensure-success (snd-mixer-close (deref handle)))
+    (foreign-free handle)))
 
 (defun access-mixer-element (handle selem-name)
   (with-foreign-object (sid-ptr :pointer)
