@@ -218,9 +218,12 @@
   (cffi:make-shareable-byte-vector (* (cffi:foreign-type-size (alsa-element-type element-type)) size channels)))
 
 (defun alsa-open (device buffer-size element-type &key direction (sample-rate 44100) (channels-count 2) buffer)
-  (when buffer
-    (assert (and (subtypep (type-of buffer) 'simple-array)
-		 (subtypep (array-element-type buffer) element-type))))
+  (let ((buffer-byte-size (* (cffi:foreign-type-size (alsa-element-type element-type))
+			     buffer-size
+			     channels-count)))
+    (when buffer
+      (assert (and (typep buffer '(simple-array (unsigned-byte 8) (*)))
+		   (= (length buffer) buffer-byte-size)))))
   (let ((pcs (make-instance 'pcm-stream
 			    :direction (case direction
 					 (:input :snd-pcm-stream-capture)
