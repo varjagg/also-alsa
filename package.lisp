@@ -4,7 +4,7 @@
   (:use #:cl #:cffi)
   (:export #:pcm-stream #:alsa-open #:alsa-close #:ref #:alsa-write #:alsa-read
 	   #:buffer #:direction #:element-type #:pcm-format #:channels-count #:buffer-size
-	   #:alsa-element-type #:contents-to-lisp #:with-alsa-device #:alsa-reopen
+	   #:alsa-element-type #:contents-to-lisp #:with-alsa-device #:with-alsa-buffer #:alsa-reopen
 	   #:get-delay #:get-avail-delay #:drain #:alsa-wait #:alsa-start
 	   #:make-alsa-buffer #:alsa-resume #:*alsa-warn* #:alsa-warn #:get-state
 	   #:open-mixer #:close-mixer #:access-mixer-element
