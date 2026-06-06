@@ -2,7 +2,7 @@
 
 (in-package #:also-alsa)
 
-(eval-when (:compile-toplevel)
+(eval-when (:compile-toplevel :load-toplevel :execute)
   (defconstant +epipe+ 32))
 
 (declaim (inline alsa-element-type to-alsa-format ensure-success))
