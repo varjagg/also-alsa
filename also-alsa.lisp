@@ -290,7 +290,6 @@
   pcm)
 
 (defmethod get-delay ((pcm pcm-stream))
-  (snd-pcm-prepare (deref (handle pcm)))
   (cffi:with-foreign-object (result 'snd-pcm-sframes)
     (let ((error-code (snd-pcm-delay (deref (handle pcm)) result)))
       (cond ((eql error-code (- +epipe+))
