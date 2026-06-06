@@ -82,11 +82,16 @@
 	       selem))
 	(snd-mixer-selem-id-free sid)))))
 
+(defun mixer-volume-from-percent (volume min max)
+  (round (+ min (* volume (/ (- max min) 100)))))
+
 (defun set-mixer-element-playback-volume (selem volume)
   (with-foreign-objects ((min :long)
 			 (max :long))
     (ensure-success (snd-mixer-selem-get-playback-volume-range selem min max))
-    (ensure-success (snd-mixer-selem-set-playback-volume-all selem (round (* volume (/ (mem-ref max :long) 100)))))))
+    (ensure-success (snd-mixer-selem-set-playback-volume-all
+		     selem
+		     (mixer-volume-from-percent volume (mem-ref min :long) (mem-ref max :long))))))
 
 (defun set-mixer-element-playback-db (selem db)
   (with-foreign-objects ((min :long)
@@ -103,7 +108,9 @@
   (with-foreign-objects ((min :long)
 			 (max :long))
     (ensure-success (snd-mixer-selem-get-capture-volume-range selem min max))
-    (ensure-success (snd-mixer-selem-set-capture-volume-all selem (round (* volume (/ (mem-ref max :long) 100)))))))
+    (ensure-success (snd-mixer-selem-set-capture-volume-all
+		     selem
+		     (mixer-volume-from-percent volume (mem-ref min :long) (mem-ref max :long))))))
 
 (defun set-mixer-element-capture-db (selem db)
   (with-foreign-objects ((min :long)
