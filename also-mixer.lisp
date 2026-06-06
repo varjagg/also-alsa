@@ -58,11 +58,18 @@
 
 (defun open-mixer (&optional (card "default"))
   (let ((handle (foreign-alloc :pointer :initial-contents (list (null-pointer)))))
-    (ensure-success (snd-mixer-open handle 0))
-    (ensure-success (snd-mixer-attach (deref handle) card))
-    (ensure-success (snd-mixer-selem-register (deref handle) (null-pointer) (null-pointer)))
-    (ensure-success (snd-mixer-load (deref handle)))
-    handle))
+    (handler-case
+	(progn
+	  (ensure-success (snd-mixer-open handle 0))
+	  (ensure-success (snd-mixer-attach (deref handle) card))
+	  (ensure-success (snd-mixer-selem-register (deref handle) (null-pointer) (null-pointer)))
+	  (ensure-success (snd-mixer-load (deref handle)))
+	  handle)
+      (error (condition)
+	(unless (null-pointer-p (deref handle))
+	  (ignore-errors (snd-mixer-close (deref handle))))
+	(foreign-free handle)
+	(error condition)))))
 
 (defun close-mixer (handle)
   (ensure-success (snd-mixer-close (deref handle)))
