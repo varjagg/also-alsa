@@ -340,6 +340,10 @@
   (ensure-success (snd-pcm-drain (deref (handle pcm))))
   pcm)
 
+(defmethod drop ((pcm pcm-stream))
+  (ensure-success (snd-pcm-drop (deref (handle pcm))))
+  pcm)
+
 (defmethod alsa-start ((pcm pcm-stream))
   (ensure-success (snd-pcm-start (deref (handle pcm))))
   pcm)
