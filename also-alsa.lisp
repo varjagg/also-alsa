@@ -398,11 +398,15 @@
 
 (defmethod alsa-close ((pcm pcm-stream))
   (when (eq (status pcm) :open)
-    (let ((drain-result (snd-pcm-drain (deref (handle pcm)))))
+    (let ((cleanup-result (if (eql (direction pcm) :snd-pcm-stream-capture)
+			      (snd-pcm-drop (deref (handle pcm)))
+			      (snd-pcm-drain (deref (handle pcm))))))
       (ensure-success (snd-pcm-close (deref (handle pcm))))
       (setf (status pcm) :closed)
       (free-pcm-params pcm)
-      (ensure-success drain-result)))
+      (unless (zerop cleanup-result)
+	(alsa-warn (format nil "ALSA cleanup during close failed: ~a"
+			   (snd-strerror cleanup-result))))))
   (setf (status pcm) :closed)
   (free-pcm-pointer-cells pcm)
   pcm)
