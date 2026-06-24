@@ -86,7 +86,7 @@
 	     (snd-mixer-selem-id-set-name sid selem-name)
 	     (let ((selem (snd-mixer-find-selem (deref handle) sid)))
 	       (when (null-pointer-p selem)
-		 (error "ALSA mixer element ~S not found" selem-name))
+		 (error 'alsa-mixer-element-not-found :error-value selem-name))
 	       selem))
 	(snd-mixer-selem-id-free sid)))))
 

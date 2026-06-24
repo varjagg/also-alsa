@@ -150,9 +150,37 @@
 (defun deref (var)
   (mem-ref var :pointer))
 
+(define-condition alsa-condition ()
+  ())
+
+(define-condition alsa-error (error alsa-condition)
+  ((error-value :reader error-value
+		:initarg :error-value)))
+
+(define-condition alsa-call-error (alsa-error)
+  ()
+  (:report (lambda (condition stream)
+	     (format stream "ALSA error: ~A" (snd-strerror (error-value condition))))))
+
+(define-condition alsa-general-error (alsa-error)
+  ()
+  (:report (lambda (condition stream)
+	     (format stream "ALSA error: ~A" (error-value condition)))))
+
+(define-condition alsa-mixer-element-not-found (alsa-error)
+  ()
+  (:report (lambda (condition stream)
+	     (format stream "ALSA mixer element ~S not found"
+		     (error-value condition)))))
+
+(define-condition alsa-type-error (alsa-error)
+  ()
+  (:report (lambda (condition stream)
+	     (format stream "Invalid base type ~A" (error-value condition)))))
+
 (defun ensure-success (value)
   (unless (zerop value)
-    (error "ALSA error: ~A" (snd-strerror value))))
+    (error 'alsa-call-error :error-value value)))
 
 (defun alsa-warn (string)
   (when *alsa-warn*
@@ -232,7 +260,7 @@
         ((equalp type '(unsigned-byte 16)) :uint16)
         ((equalp type '(unsigned-byte 32)) :uint32)
         ((equalp type '(signed-byte 32)) :int32)
-        (t (error "Invalid base type ~A" type))))
+        (t (error 'alsa-type-error :error-value type))))
 
 (defun to-alsa-format (element-type)
   (cond ((eql element-type 'single-float) :snd-pcm-format-float-le)
@@ -243,7 +271,7 @@
         ((equalp element-type '(signed-byte 16)) :snd-pcm-format-s16-le)
         ((equalp element-type '(unsigned-byte 32)) :snd-pcm-format-u32-le)
         ((equalp element-type '(signed-byte 32)) :snd-pcm-format-s32-le)
-        (t (error "Invalid base type ~A" element-type))))
+        (t (error 'alsa-type-error :error-value element-type))))
 
 (defun alsa-open-2 (pcs)
   (ensure-pointer-cells pcs)
@@ -402,7 +430,7 @@
 		     ((minusp result)
 		      (ensure-success result))
 		     ((zerop result)
-		      (error "ALSA error: snd_pcm_writei made no progress"))
+		      (error 'alsa-general-error :error-value "snd_pcm_writei made no progress"))
 		     (t
 		      (incf written result))))))
   pcm)
@@ -423,7 +451,7 @@
 		     ((minusp result)
 		      (ensure-success result))
 		     ((zerop result)
-		      (error "ALSA error: snd_pcm_readi made no progress"))
+		      (error 'alsa-general-error :error-value "snd_pcm_readi made no progress"))
 		     (t
 		      (incf frames-read result))))))
   pcm)

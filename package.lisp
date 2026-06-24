@@ -11,5 +11,7 @@
 	   #:set-mixer-element-playback-volume #:set-mixer-element-playback-db
 	   #:set-mixer-element-capture-volume #:set-mixer-element-capture-db
 	   #:set-mixer-element-volume #:get-mixer-element-playback-db
-	   #:get-mixer-element-capture-db #:load-alsa
+	   #:get-mixer-element-capture-db #:load-alsa #:error-value
+	   #:alsa-condition #:alsa-error #:alsa-call-error #:alsa-general-error
+	   #:alsa-mixer-element-not-found #:alsa-type-error
 	   #:alsa-set-start-threshold #:alsa-get-start-threshold))
