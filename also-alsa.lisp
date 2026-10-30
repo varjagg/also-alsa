@@ -86,6 +86,10 @@
 
 (defctype snd-pcm-sframes :long)
 
+(defcstruct (snd-htimestamp :size 16)
+  (seconds :int64)
+  (nanoseconds :long :offset 8))
+
 (defcfun "snd_pcm_open" :int (pcm :pointer) (name :string) (stream snd-pcm-stream) (mode :int))
 
 (defcfun "snd_pcm_state" snd-pcm-state (pcm :pointer))
@@ -129,6 +133,22 @@
 (defcfun "snd_pcm_delay" :int (pcm :pointer) (delayp (:pointer snd-pcm-sframes)))
 
 (defcfun "snd_pcm_avail_delay" :int (pcm :pointer) (availp (:pointer snd-pcm-sframes)) (delayp (:pointer snd-pcm-sframes)))
+
+(defcfun "snd_pcm_htimestamp" :int (pcm :pointer) (availp (:pointer snd-pcm-uframes))
+         (timestamp (:pointer (:struct snd-htimestamp))))
+
+(defcfun "snd_pcm_status_malloc" :int (status :pointer))
+
+(defcfun "snd_pcm_status_free" :void (status :pointer))
+
+(defcfun "snd_pcm_status" :int (pcm :pointer) (status :pointer))
+
+(defcfun "snd_pcm_status_get_trigger_htstamp" :void (status :pointer)
+         (timestamp (:pointer (:struct snd-htimestamp))))
+
+(defcfun "snd_pcm_sw_params_set_tstamp_mode" :int (pcm :pointer) (params :pointer) (mode :int))
+
+(defcfun "snd_pcm_sw_params_set_tstamp_type" :int (pcm :pointer) (params :pointer) (type :int))
 
 (defcfun "snd_pcm_sw_params_malloc" :int (dptr :pointer))
 
@@ -396,6 +416,47 @@
 	    (t (values (mem-ref avail 'snd-pcm-sframes)
 		       (mem-ref delay 'snd-pcm-sframes)))))))
 
+(defmethod alsa-enable-timestamps ((pcm pcm-stream))
+  "Enable CLOCK_MONOTONIC timestamps without changing transfer parameters."
+  (let ((handle (deref (handle pcm)))
+        (params (deref (swparams pcm))))
+    (ensure-success (snd-pcm-sw-params-current handle params))
+    (ensure-success (snd-pcm-sw-params-set-tstamp-mode handle params 1))
+    (ensure-success (snd-pcm-sw-params-set-tstamp-type handle params 1))
+    (ensure-success (snd-pcm-sw-params handle params)))
+  pcm)
+
+(defmethod get-avail-timestamp ((pcm pcm-stream))
+  "Return available frames and their CLOCK_MONOTONIC position time in nanoseconds.
+Call ALSA-ENABLE-TIMESTAMPS before starting the stream. Both values describe
+the same hardware-position update, unlike a separate clock and delay read."
+  (with-foreign-objects ((available 'snd-pcm-uframes)
+                        (timestamp '(:struct snd-htimestamp)))
+    (ensure-success (snd-pcm-htimestamp (deref (handle pcm)) available timestamp))
+    (let ((time (+ (* 1000000000 (foreign-slot-value timestamp '(:struct snd-htimestamp) 'seconds))
+                   (foreign-slot-value timestamp '(:struct snd-htimestamp) 'nanoseconds))))
+      (unless (plusp time)
+        (error 'alsa-general-error :error-value "PCM position timestamp is unavailable"))
+      (values (mem-ref available 'snd-pcm-uframes) time))))
+
+(defmethod get-trigger-timestamp ((pcm pcm-stream))
+  "Return the stream's CLOCK_MONOTONIC start time in nanoseconds.
+Call ALSA-ENABLE-TIMESTAMPS before starting, and query before draining or dropping."
+  (with-foreign-objects ((status-cell :pointer)
+                        (timestamp '(:struct snd-htimestamp)))
+    (ensure-success (snd-pcm-status-malloc status-cell))
+    (let ((status (mem-ref status-cell :pointer)))
+      (unwind-protect
+           (progn
+             (ensure-success (snd-pcm-status (deref (handle pcm)) status))
+             (snd-pcm-status-get-trigger-htstamp status timestamp)
+             (let ((time (+ (* 1000000000 (foreign-slot-value timestamp '(:struct snd-htimestamp) 'seconds))
+                            (foreign-slot-value timestamp '(:struct snd-htimestamp) 'nanoseconds))))
+               (unless (plusp time)
+                 (error 'alsa-general-error :error-value "PCM start timestamp is unavailable"))
+               time))
+        (snd-pcm-status-free status)))))
+
 (defmethod alsa-close ((pcm pcm-stream))
   (when (eq (status pcm) :open)
     (let ((cleanup-result (if (eql (direction pcm) :snd-pcm-stream-capture)
@@ -440,9 +501,13 @@
   pcm)
 
 (defmethod alsa-read ((pcm pcm-stream))
+  "Fill PCM's buffer and return PCM, then whether an overrun was recovered.
+The second value is true if any read returned EPIPE. Such a buffer is not
+guaranteed to follow the previous buffer continuously, even after recovery."
   (assert (eql (direction pcm) :snd-pcm-stream-capture))
   (let ((expected (/ (buffer-size pcm) (channels-count pcm)))
-	(frame-byte-size (frame-byte-size pcm)))
+	(frame-byte-size (frame-byte-size pcm))
+        (discontinuity-p nil))
     (with-pointer-to-vector-data (ptr (buffer pcm))
       (loop with frames-read = 0
 	    while (< frames-read expected)
@@ -450,6 +515,7 @@
 					(inc-pointer ptr (* frames-read frame-byte-size))
 					(- expected frames-read))
 	    do (cond ((= result (- +epipe+))
+                      (setf discontinuity-p t)
 		      (alsa-warn "Underrun!")
 		      (ensure-success (snd-pcm-prepare (deref (handle pcm)))))
 		     ((minusp result)
@@ -457,8 +523,8 @@
 		     ((zerop result)
 		      (error 'alsa-general-error :error-value "snd_pcm_readi made no progress"))
 		     (t
-		      (incf frames-read result))))))
-  pcm)
+		      (incf frames-read result)))))
+    (values pcm discontinuity-p)))
 
 (defmethod contents-to-lisp ((pcm pcm-stream))
   (let ((result (make-array (buffer-size pcm) :element-type (element-type pcm)))

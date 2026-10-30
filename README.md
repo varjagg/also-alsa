@@ -4,6 +4,15 @@ A small subset of ALSA interface for Common Lisp.
 
 PCM streams are encapsulated in ALSO-ALSA:PCM-STREAM instances.
 
+`ALSO-ALSA:ALSA-READ` fills the stream's buffer and returns the PCM stream.
+Its second value is true when an overrun (EPIPE) was recovered during that read.
+Such a buffer may contain a gap or be discontinuous with the preceding buffer.
+
+Timestamp functions require ALSA's 64-bit-time ABI (little-endian ARM32 or LP64).
+
+Run the hardware-free regression tests with `(asdf:test-system :also-alsa)`.
+Test failures signal an error; the tests do not open a PCM or mixer device.
+
 To play random noise on one channel of default stereo device:
 
 ```
